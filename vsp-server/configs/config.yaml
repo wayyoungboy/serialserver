@@ -1,0 +1,16 @@
+server:
+  host: "0.0.0.0"
+  port: 9000
+  mode: "debug"  # debug, release
+
+database:
+  driver: "sqlite"
+  path: "./data/vsp.db"
+
+jwt:
+  secret: "vsp-jwt-secret-key-change-in-production"
+  expire_time: 24  # hours
+
+log:
+  level: "info"
+  path: "./logs/vsp.log"

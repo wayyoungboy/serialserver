@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "tunnels": [
+    {
+      "name": "本地测试",
+      "mode": "client",
+      "serial": {
+        "port": "COM3",
+        "baud": 115200,
+        "dataBits": 8,
+        "stopBits": 1,
+        "parity": "N"
+      },
+      "tcp": {
+        "host": "127.0.0.1",
+        "port": 9000
+      },
+      "enabled": true
+    }
+  ],
+  "ui": {
+    "port": 8080,
+    "theme": "dark",
+    "startMinimized": false,
+    "minimizeToTray": true
+  }
+}

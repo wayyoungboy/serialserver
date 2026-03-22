@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "dgSpecHash": "3FVvxjH3ur4=",
+  "success": true,
+  "projectFilePath": "E:\\code\\serialserver\\vsp-windows\\VSPManager\\VSPManager.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\wayyoung\\.nuget\\packages\\communitytoolkit.mvvm\\8.2.2\\communitytoolkit.mvvm.8.2.2.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\hardcodet.notifyicon.wpf\\1.1.0\\hardcodet.notifyicon.wpf.1.1.0.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.android-arm.runtime.native.system.io.ports\\10.0.5\\runtime.android-arm.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.android-arm64.runtime.native.system.io.ports\\10.0.5\\runtime.android-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.android-x64.runtime.native.system.io.ports\\10.0.5\\runtime.android-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.android-x86.runtime.native.system.io.ports\\10.0.5\\runtime.android-x86.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-arm.runtime.native.system.io.ports\\10.0.5\\runtime.linux-arm.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-arm64.runtime.native.system.io.ports\\10.0.5\\runtime.linux-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-bionic-arm64.runtime.native.system.io.ports\\10.0.5\\runtime.linux-bionic-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-bionic-x64.runtime.native.system.io.ports\\10.0.5\\runtime.linux-bionic-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-musl-arm.runtime.native.system.io.ports\\10.0.5\\runtime.linux-musl-arm.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-musl-arm64.runtime.native.system.io.ports\\10.0.5\\runtime.linux-musl-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-musl-x64.runtime.native.system.io.ports\\10.0.5\\runtime.linux-musl-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.linux-x64.runtime.native.system.io.ports\\10.0.5\\runtime.linux-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.maccatalyst-arm64.runtime.native.system.io.ports\\10.0.5\\runtime.maccatalyst-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.maccatalyst-x64.runtime.native.system.io.ports\\10.0.5\\runtime.maccatalyst-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.native.system.io.ports\\10.0.5\\runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.osx-arm64.runtime.native.system.io.ports\\10.0.5\\runtime.osx-arm64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\runtime.osx-x64.runtime.native.system.io.ports\\10.0.5\\runtime.osx-x64.runtime.native.system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\system.codedom\\10.0.5\\system.codedom.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\system.io.ports\\10.0.5\\system.io.ports.10.0.5.nupkg.sha512",
+    "C:\\Users\\wayyoung\\.nuget\\packages\\system.management\\10.0.5\\system.management.10.0.5.nupkg.sha512"
+  ],
+  "logs": []
+}

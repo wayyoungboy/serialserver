@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "listen": ":9000",
+  "log": "server.log",
+  "maxClients": 2,
+  "timeout": 300
+}

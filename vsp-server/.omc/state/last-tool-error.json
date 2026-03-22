@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"tasklist 2>&1 | findstr /i \\\"VSPManager device-client vsp-server\\\"\",\"description\":\"Check running processes\"}",
+  "error": "Exit code 1\nFINDSTR: �޷��� VSPManager device-client vsp-server",
+  "timestamp": "2026-03-22T15:33:56.496Z",
+  "retry_count": 4
+}

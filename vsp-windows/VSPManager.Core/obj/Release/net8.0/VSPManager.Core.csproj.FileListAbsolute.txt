@@ -1,0 +1,13 @@
+E:\code\serialserver\vsp-windows\VSPManager.Core\bin\Release\net8.0\VSPManager.Core.deps.json
+E:\code\serialserver\vsp-windows\VSPManager.Core\bin\Release\net8.0\VSPManager.Core.dll
+E:\code\serialserver\vsp-windows\VSPManager.Core\bin\Release\net8.0\VSPManager.Core.pdb
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.csproj.AssemblyReference.cache
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.GeneratedMSBuildEditorConfig.editorconfig
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.AssemblyInfoInputs.cache
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.AssemblyInfo.cs
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.csproj.CoreCompileInputs.cache
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.sourcelink.json
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.dll
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\refint\VSPManager.Core.dll
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\VSPManager.Core.pdb
+E:\code\serialserver\vsp-windows\VSPManager.Core\obj\Release\net8.0\ref\VSPManager.Core.dll

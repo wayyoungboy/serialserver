@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSP 云管理平台</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录页面 -->
+        <div id="login-page" class="page active">
+            <div class="login-container">
+                <h1>VSP 云管理平台</h1>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" id="login-username" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="login-password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">登录</button>
+                    <p class="hint">默认管理员: admin / admin123</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="main-page" class="page">
+            <nav class="navbar">
+                <div class="nav-brand">VSP 云管理平台</div>
+                <div class="nav-menu">
+                    <a href="#" class="nav-item active" data-page="dashboard">仪表盘</a>
+                    <a href="#" class="nav-item" data-page="devices">设备管理</a>
+                    <a href="#" class="nav-item" data-page="logs">日志</a>
+                </div>
+                <div class="nav-user">
+                    <span id="user-name"></span>
+                    <button id="logout-btn" class="btn btn-sm">退出</button>
+                </div>
+            </nav>
+
+            <div class="container">
+                <!-- 仪表盘 -->
+                <div id="dashboard-section" class="section active">
+                    <h2>系统概览</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-devices">0</div>
+                            <div class="stat-label">设备总数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-online">0</div>
+                            <div class="stat-label">在线设备</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-users">0</div>
+                            <div class="stat-label">用户数</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 设备管理 -->
+                <div id="devices-section" class="section">
+                    <div class="section-header">
+                        <h2>设备管理</h2>
+                        <button id="add-device-btn" class="btn btn-primary">添加设备</button>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>设备名称</th>
+                                <th>Device Key</th>
+                                <th>串口</th>
+                                <th>状态</th>
+                                <th>最后在线</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devices-tbody">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 日志 -->
+                <div id="logs-section" class="section">
+                    <h2>连接日志</h2>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>设备</th>
+                                <th>操作</th>
+                                <th>详情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加设备弹窗 -->
+        <div id="add-device-modal" class="modal">
+            <div class="modal-content">
+                <h3>添加设备</h3>
+                <form id="add-device-form">
+                    <div class="form-group">
+                        <label>设备名称</label>
+                        <input type="text" id="device-name" required placeholder="如: PLC-1">
+                    </div>
+                    <div class="form-group">
+                        <label>串口 (可选)</label>
+                        <input type="text" id="device-port" placeholder="如: COM3">
+                    </div>
+                    <div class="form-group">
+                        <label>波特率</label>
+                        <input type="number" id="device-baud" value="115200">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn" id="cancel-add-device">取消</button>
+                        <button type="submit" class="btn btn-primary">创建</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 设备详情弹窗 -->
+        <div id="device-detail-modal" class="modal">
+            <div class="modal-content">
+                <h3>设备详情</h3>
+                <div id="device-detail-content"></div>
+                <div class="modal-actions">
+                    <button class="btn" id="close-detail">关闭</button>
+                    <button class="btn btn-danger" id="delete-device">删除设备</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

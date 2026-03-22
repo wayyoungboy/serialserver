@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"tasklist | grep -i \\\"device-client\\\" || tasklist | findstr /i \\\"device-client\\\"\",\"description\":\"Check if device-client is running\"}",
+  "error": "Exit code 1\nFINDSTR: �޷��� device-client",
+  "timestamp": "2026-03-22T15:32:14.617Z",
+  "retry_count": 5
+}

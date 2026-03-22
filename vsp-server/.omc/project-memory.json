@@ -1,0 +1,185 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1774186523312,
+  "projectRoot": "E:\\code\\serialserver\\vsp-server",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Go",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "go.mod"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "go",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "cmd": {
+      "path": "cmd",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1774186523295,
+      "keyFiles": [
+        "main.go"
+      ]
+    },
+    "configs": {
+      "path": "configs",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1774186523296,
+      "keyFiles": [
+        "config.yaml"
+      ]
+    },
+    "internal": {
+      "path": "internal",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1774186523296,
+      "keyFiles": []
+    },
+    "web": {
+      "path": "web",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1774186523297,
+      "keyFiles": []
+    },
+    "internal\\api": {
+      "path": "internal\\api",
+      "purpose": "API routes",
+      "fileCount": 1,
+      "lastAccessed": 1774186523298,
+      "keyFiles": [
+        "router.go"
+      ]
+    },
+    "internal\\config": {
+      "path": "internal\\config",
+      "purpose": "Configuration files",
+      "fileCount": 1,
+      "lastAccessed": 1774186523298,
+      "keyFiles": [
+        "config.go"
+      ]
+    },
+    "internal\\models": {
+      "path": "internal\\models",
+      "purpose": "Data models",
+      "fileCount": 1,
+      "lastAccessed": 1774186523299,
+      "keyFiles": [
+        "models.go"
+      ]
+    },
+    "internal\\services": {
+      "path": "internal\\services",
+      "purpose": "Business logic services",
+      "fileCount": 1,
+      "lastAccessed": 1774186523299,
+      "keyFiles": [
+        "services.go"
+      ]
+    },
+    "web\\dist": {
+      "path": "web\\dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1774186523300,
+      "keyFiles": [
+        "index.html"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "internal\\database\\sqlite.go",
+      "accessCount": 3,
+      "lastAccessed": 1774186697000,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\wayyoung\\AppData\\Local\\Temp\\claude\\E--code-serialserver\\2c886a14-0eda-472a-a86b-863c4be505c4\\tasks\\bo13ev7z5.output",
+      "accessCount": 3,
+      "lastAccessed": 1774193804150,
+      "type": "file"
+    },
+    {
+      "path": "internal\\api\\handlers\\handlers.go",
+      "accessCount": 2,
+      "lastAccessed": 1774187854443,
+      "type": "file"
+    },
+    {
+      "path": "internal\\api\\router.go",
+      "accessCount": 2,
+      "lastAccessed": 1774187862290,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\wayyoung\\AppData\\Local\\Temp\\claude\\E--code-serialserver\\2c886a14-0eda-472a-a86b-863c4be505c4\\tasks\\btfxlmvfk.output",
+      "accessCount": 2,
+      "lastAccessed": 1774193650152,
+      "type": "file"
+    },
+    {
+      "path": "configs\\config.yaml",
+      "accessCount": 1,
+      "lastAccessed": 1774186563154,
+      "type": "file"
+    },
+    {
+      "path": "go.mod",
+      "accessCount": 1,
+      "lastAccessed": 1774186590905,
+      "type": "file"
+    },
+    {
+      "path": "internal\\services\\services.go",
+      "accessCount": 1,
+      "lastAccessed": 1774186667597,
+      "type": "file"
+    },
+    {
+      "path": "genhash.go",
+      "accessCount": 1,
+      "lastAccessed": 1774186683007,
+      "type": "file"
+    },
+    {
+      "path": "internal\\models\\models.go",
+      "accessCount": 1,
+      "lastAccessed": 1774187594876,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
