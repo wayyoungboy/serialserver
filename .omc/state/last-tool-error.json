@@ -1,7 +1,0 @@
-{
-  "tool_name": "WebFetch",
-  "tool_input_preview": "{\"url\":\"https://sourceforge.net/p/com0com/wiki/Documentation/\",\"prompt\":\"Find how to hide a port in com0com, look for hidden parameter or PortName settings\"}",
-  "error": "Request failed with status code 404",
-  "timestamp": "2026-03-22T15:56:03.693Z",
-  "retry_count": 1
-}

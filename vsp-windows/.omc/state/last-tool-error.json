@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"E:/code/serialserver/vsp-windows/VSPManager/bin/Release/net8.0-windows/com0com\\\" && ./setupc.exe list 2>&1\",\"description\":\"List current com0com ports\"}",
-  "error": "Exit code 126\n/usr/bin/bash: line 1: ./setupc.exe: Permission denied",
-  "timestamp": "2026-03-22T16:57:39.551Z",
-  "retry_count": 1
-}

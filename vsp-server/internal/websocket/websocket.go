@@ -23,6 +23,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// 心跳配置
+const (
+	PingInterval = 30 * time.Second // 发送 Ping 间隔
+	PongTimeout  = 10 * time.Second // 等待 Pong 超时
+	WriteWait    = 10 * time.Second // 写操作超时
+)
+
 // Hub 连接管理中心
 type Hub struct {
 	connections map[uint]*DeviceConnection // deviceID -> connection
@@ -41,6 +48,7 @@ type DeviceConnection struct {
 	ConnectedAt time.Time
 	BytesSent   int64
 	BytesRecv   int64
+	mu          sync.Mutex // 保护连接的并发访问
 }
 
 // Message WebSocket 消息
@@ -82,6 +90,13 @@ func (h *Hub) HandleDevice(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
+
+	// 设置读取超时和 Pong 处理
+	conn.SetReadDeadline(time.Now().Add(PingInterval + PongTimeout))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(PingInterval + PongTimeout))
+		return nil
+	})
 
 	// 等待认证消息
 	var msg Message
@@ -130,7 +145,9 @@ func (h *Hub) HandleDevice(c *gin.Context) {
 		}
 		h.connections[device.ID] = dc
 	}
+	dc.mu.Lock()
 	dc.DeviceConn = conn
+	dc.mu.Unlock()
 	h.mu.Unlock()
 
 	// 发送认证成功
@@ -141,14 +158,40 @@ func (h *Hub) HandleDevice(c *gin.Context) {
 
 	log.Printf("设备端连接成功: DeviceID=%d, Key=%s", device.ID, auth.DeviceKey[:8]+"...")
 
-	// 通知客户端
-	h.notifyClient(device.ID, "device_connected")
+	// 通知客户端设备上线
+	h.notifyClient(device.ID, "device_online")
+
+	// 启动心跳协程
+	stopPing := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(PingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				// 向设备端发送心跳
+				conn.SetWriteDeadline(time.Now().Add(WriteWait))
+				if err := conn.WriteJSON(Message{Type: "ping"}); err != nil {
+					log.Printf("发送心跳到设备端失败: %v", err)
+					return
+				}
+			case <-stopPing:
+				return
+			}
+		}
+	}()
 
 	// 读取数据循环
 	for {
 		var msg Message
 		if err := conn.ReadJSON(&msg); err != nil {
 			break
+		}
+
+		// 处理心跳响应
+		if msg.Type == "pong" {
+			conn.SetReadDeadline(time.Now().Add(PingInterval + PongTimeout))
+			continue
 		}
 
 		if msg.Type == "data" {
@@ -161,27 +204,34 @@ func (h *Hub) HandleDevice(c *gin.Context) {
 
 			// 转发给客户端
 			h.mu.RLock()
+			dc.mu.Lock()
 			if dc.ClientConn != nil {
 				dc.ClientConn.WriteJSON(msg)
 				dc.BytesSent += int64(len(data.Data))
 			}
+			dc.mu.Unlock()
 			h.mu.RUnlock()
 		}
 	}
 
+	// 停止心跳
+	close(stopPing)
+
 	// 连接断开
 	h.mu.Lock()
+	dc.mu.Lock()
 	if dc != nil {
 		dc.DeviceConn = nil
 		if dc.ClientConn == nil {
 			delete(h.connections, device.ID)
 		}
 	}
+	dc.mu.Unlock()
 	h.mu.Unlock()
 
 	deviceService.UpdateDeviceStatus(auth.DeviceKey, "offline")
 	h.logService.Log(device.TenantID, device.ID, 0, "device_disconnect", "设备端断开")
-	h.notifyClient(device.ID, "device_disconnected")
+	h.notifyClient(device.ID, "device_offline")
 	log.Printf("设备端断开: DeviceID=%d", device.ID)
 }
 
@@ -193,6 +243,13 @@ func (h *Hub) HandleClient(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
+
+	// 设置读取超时和 Pong 处理
+	conn.SetReadDeadline(time.Now().Add(PingInterval + PongTimeout))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(PingInterval + PongTimeout))
+		return nil
+	})
 
 	// 等待认证消息
 	var msg Message
@@ -233,14 +290,19 @@ func (h *Hub) HandleClient(c *gin.Context) {
 		}
 		h.connections[device.ID] = dc
 	}
+	dc.mu.Lock()
 	dc.ClientConn = conn
+	dc.mu.Unlock()
 	h.mu.Unlock()
 
-	// 发送认证成功
+	// 发送认证成功（包含设备在线状态）
 	status := "device_offline"
+	dc.mu.Lock()
 	if dc.DeviceConn != nil {
 		status = "device_online"
 	}
+	dc.mu.Unlock()
+
 	conn.WriteJSON(Message{
 		Type: "auth",
 		Payload: mustMarshal(StatusMessage{
@@ -254,11 +316,36 @@ func (h *Hub) HandleClient(c *gin.Context) {
 
 	log.Printf("客户端连接成功: DeviceID=%d", device.ID)
 
+	// 启动心跳协程
+	stopPing := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(PingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(WriteWait))
+				if err := conn.WriteJSON(Message{Type: "ping"}); err != nil {
+					log.Printf("客户端心跳发送失败: %v", err)
+					return
+				}
+			case <-stopPing:
+				return
+			}
+		}
+	}()
+
 	// 读取数据循环
 	for {
 		var msg Message
 		if err := conn.ReadJSON(&msg); err != nil {
 			break
+		}
+
+		// 处理心跳响应
+		if msg.Type == "pong" {
+			conn.SetReadDeadline(time.Now().Add(PingInterval + PongTimeout))
+			continue
 		}
 
 		if msg.Type == "data" {
@@ -271,22 +358,29 @@ func (h *Hub) HandleClient(c *gin.Context) {
 
 			// 转发给设备端
 			h.mu.RLock()
+			dc.mu.Lock()
 			if dc.DeviceConn != nil {
 				dc.DeviceConn.WriteJSON(msg)
 				dc.BytesRecv += int64(len(data.Data))
 			}
+			dc.mu.Unlock()
 			h.mu.RUnlock()
 		}
 	}
 
+	// 停止心跳
+	close(stopPing)
+
 	// 连接断开
 	h.mu.Lock()
+	dc.mu.Lock()
 	if dc != nil {
 		dc.ClientConn = nil
 		if dc.DeviceConn == nil {
 			delete(h.connections, device.ID)
 		}
 	}
+	dc.mu.Unlock()
 	h.mu.Unlock()
 
 	h.logService.Log(device.TenantID, device.ID, device.UserID, "client_disconnect", "客户端断开")

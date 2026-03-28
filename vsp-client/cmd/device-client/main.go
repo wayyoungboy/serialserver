@@ -210,7 +210,7 @@ func (c *DeviceClient) Start() error {
 		}
 	}()
 
-	// WebSocket -> 串口
+	// WebSocket -> 串口 (含心跳处理)
 	go func() {
 		for {
 			select {
@@ -232,6 +232,15 @@ func (c *DeviceClient) Start() error {
 					}
 					continue
 				}
+
+				// 处理心跳
+				if msg.Type == "ping" {
+					c.mu.Lock()
+					c.wsConn.WriteJSON(map[string]string{"type": "pong"})
+					c.mu.Unlock()
+					continue
+				}
+
 				if msg.Type == "data" {
 					var dataMsg struct {
 						Data []byte `json:"data"`

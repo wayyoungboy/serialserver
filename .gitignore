@@ -1,0 +1,91 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build directories
+build/
+dist/
+out/
+bin/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Go
+*.test
+*.out
+go.work
+go.work.sum
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+*.local.json
+
+# Temporary
+tmp/
+temp/
+
+# Wails
+vsp-windows/build/
+vsp-windows/frontend/dist/
+vsp-windows/frontend/node_modules/
+
+# Test output
+tests/test_programs/test_x.exe
+tests/test_programs/test_y.exe
+
+# Config with sensitive data
+vsp-server/configs/config.local.yaml
+
+# Claude AI local settings
+.claude/settings.local.json
+
+# OMC (old session files)
+.omc/
+**/.omc/
+
+# Compiled binaries (build in CI)
+vsp-server/vsp-server.exe
+vsp-server/vsp-server
+vsp-client/device-client.exe
+vsp-client/device-client
+vsp-client/vsp-manager.exe
+vsp-windows/build/bin/
+
+# Archives
+*.zip
+
+# Test temp files
+vsp-windows/test_com0com/
+
+# Chinese docs (temp)
+*.md
+!README.md
+!tests/**/*.md
+!vsp-server/README.md
+!vsp-client/README.md
+!vsp-windows/README.md
