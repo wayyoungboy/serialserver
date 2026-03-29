@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/wayyoungboy/serialserver/actions/workflows/release.yml/badge.svg)](https://github.com/wayyoungboy/serialserver/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 
 VSP (Virtual Serial Port) 是一个商业化虚拟串口云平台，支持通过网络远程访问串口设备。适用于 PLC 远程调试、IoT 设备管理、工业自动化等场景。
 
@@ -191,7 +191,7 @@ serialserver/
 
 ## 依赖
 
-- **Go 1.24+**
+- **Go 1.25+**
 - **Node.js 20+** (构建 Windows GUI)
 - **Wails CLI** (构建 Windows GUI)
 - **com0com** (Windows 虚拟串口驱动)

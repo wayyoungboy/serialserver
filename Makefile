@@ -6,7 +6,7 @@
 # 版本号
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.1.0")
 BUILD_DIR := build/release
-GO_VERSION := 1.24
+GO_VERSION := 1.25
 
 # 颜色输出
 GREEN := \033[32m
