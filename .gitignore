@@ -85,6 +85,7 @@ vsp-windows/test_com0com/
 # Chinese docs (temp)
 *.md
 !README.md
+!README_EN.md
 !tests/**/*.md
 !vsp-server/README.md
 !vsp-client/README.md

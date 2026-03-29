@@ -52,7 +52,7 @@ func New(serialMgr *serial.PortManager, tunnelMgr *tcp.Manager, configMgr *confi
 func (a *App) Run(window fyne.Window) {
 	a.window = window
 	window.SetTitle("VSP Manager - 虚拟串口管理器")
-	window.Resize(fyne.NewSize(800, 600)
+	window.Resize(fyne.NewSize(800, 600))
 
 	// 创建主界面
 	content := a.createMainContent()
