@@ -39,10 +39,8 @@ jobs:
           cd vsp-client
           go test -v -race ./...
 
-      - name: Test vsp-windows
-        run: |
-          cd vsp-windows
-          go test -v -race ./...
+      # vsp-windows 测试在 Windows E2E Test job 中运行
+      # 因为需要 Windows 特有的 syscall 和 frontend/dist
 
   # ==================== Server Build ====================
   build-server:
