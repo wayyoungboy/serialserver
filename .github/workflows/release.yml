@@ -212,8 +212,8 @@ jobs:
       - name: Run vsp-windows Tests
         run: |
           cd vsp-windows
-          # 只运行 config 和 api 测试 (不依赖 Windows syscall 的测试)
-          go test -v ./internal/config/... ./internal/api/...
+          # 只运行 config 和 network 测试 (不依赖 Windows syscall 的测试)
+          go test -v ./internal/config/... ./internal/network/...
 
       # 注意: 完整 E2E 测试需要 com0com 驱动
       # com0com 是内核驱动，CI 环境需要特殊权限才能安装
