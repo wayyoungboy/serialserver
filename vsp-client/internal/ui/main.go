@@ -9,8 +9,9 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	
+
 	"vsp-client/internal/config"
 	"vsp-client/internal/serial"
 	"vsp-client/internal/tcp"
@@ -18,16 +19,17 @@ import (
 
 // App UI应用
 type App struct {
-	window        fyne.Window
+	window       fyne.Window
 	configMgr    *config.Manager
 	serialMgr    *serial.PortManager
 	tunnelMgr    *tcp.Manager
-	
+
 	tunnelList   *widget.List
 	statusLabel  *widget.Label
 	logView      *widget.TextGrid
-	
+
 	tunnels      []TunnelItem
+	selectedIdx  int
 }
 
 // TunnelItem 隧道列表项
@@ -45,6 +47,7 @@ func New(serialMgr *serial.PortManager, tunnelMgr *tcp.Manager, configMgr *confi
 		tunnelMgr:  tunnelMgr,
 		configMgr:  configMgr,
 		tunnels:    []TunnelItem{},
+		selectedIdx: -1,
 	}
 }
 
@@ -57,7 +60,7 @@ func (a *App) Run(window fyne.Window) {
 	// 创建主界面
 	content := a.createMainContent()
 	window.SetContent(content)
-	
+
 	// 加载配置中的隧道
 	a.loadTunnels()
 }
@@ -65,10 +68,10 @@ func (a *App) Run(window fyne.Window) {
 // createMainContent 创建主界面
 func (a *App) createMainContent() fyne.CanvasObject {
 	// 顶部标题栏
-	title := canvas.NewText("VSP Manager", &fyne.Theme{})
+	title := canvas.NewText("VSP Manager", theme.PrimaryColor())
 	title.TextSize = 24
 	title.Alignment = fyne.TextAlignCenter
-	
+
 	// 隧道列表
 	a.tunnelList = widget.NewList(
 		func() int { return len(a.tunnels) },
@@ -89,33 +92,38 @@ func (a *App) createMainContent() fyne.CanvasObject {
 			}
 		},
 	)
-	
+
+	// 监听列表选择
+	a.tunnelList.OnSelected = func(id widget.ListItemID) {
+		a.selectedIdx = int(id)
+	}
+
 	// 按钮栏
 	btnAdd := widget.NewButton("添加隧道", a.onAddTunnel)
 	btnEdit := widget.NewButton("编辑隧道", a.onEditTunnel)
 	btnDelete := widget.NewButton("删除隧道", a.onDeleteTunnel)
 	btnStart := widget.NewButton("启动", a.onStartTunnel)
 	btnStop := widget.NewButton("停止", a.onStopTunnel)
-	
+
 	buttonBar := container.NewHBox(
 		btnAdd, btnEdit, btnDelete,
 		layout.NewSpacer(),
 		btnStart, btnStop,
 	)
-	
+
 	// 日志区域
-	logLabel := canvas.NewText("日志", &fyne.Theme{})
+	logLabel := canvas.NewText("日志", theme.PrimaryColor())
 	logLabel.TextSize = 14
-	
+
 	a.logView = widget.NewTextGrid()
 	a.logView.SetText("系统就绪\n")
-	
+
 	logContainer := container.NewVBox(
 		logLabel,
 		a.logView,
 	)
 	logContainer.Resize(fyne.NewSize(780, 200))
-	
+
 	// 状态栏
 	a.statusLabel = widget.NewLabel("就绪")
 	statusBar := container.NewHBox(
@@ -123,10 +131,12 @@ func (a *App) createMainContent() fyne.CanvasObject {
 		layout.NewSpacer(),
 		widget.NewLabel("v1.0.0"),
 	)
-	
+
 	// 布局
+	header := canvas.NewText("虚拟串口管理器", theme.PrimaryColor())
+
 	mainContainer := container.NewVBox(
-		canvas.NewText("虚拟串口管理器", &fyne.Theme{}),
+		header,
 		widget.NewSeparator(),
 		a.tunnelList,
 		buttonBar,
@@ -135,7 +145,7 @@ func (a *App) createMainContent() fyne.CanvasObject {
 		widget.NewSeparator(),
 		statusBar,
 	)
-	
+
 	return container.NewPadded(mainContainer)
 }
 
@@ -143,41 +153,50 @@ func (a *App) createMainContent() fyne.CanvasObject {
 func (a *App) onAddTunnel() {
 	log.Println("添加隧道")
 	a.log("打开添加隧道对话框")
-	
+
 	// 创建添加对话框
+	form := a.createTunnelForm(nil)
 	dialog.ShowCustomConfirm("添加隧道", "确定", "取消",
-		a.createTunnelForm(nil), a.window)
+		form, func(confirmed bool) {
+			if confirmed {
+				a.log("添加隧道确认")
+			}
+		}, a.window)
 }
 
 // onEditTunnel 编辑隧道
 func (a *App) onEditTunnel() {
-	selected := a.tunnelList.SelectedIndex()
-	if selected < 0 || selected >= len(a.tunnels) {
+	if a.selectedIdx < 0 || a.selectedIdx >= len(a.tunnels) {
 		dialog.ShowInformation("提示", "请先选择要编辑的隧道", a.window)
 		return
 	}
-	
-	tunnel := a.tunnels[selected]
+
+	tunnel := a.tunnels[a.selectedIdx]
 	a.log(fmt.Sprintf("编辑隧道: %s", tunnel.Name))
-	
+
+	form := a.createTunnelForm(&tunnel)
 	dialog.ShowCustomConfirm("编辑隧道", "确定", "取消",
-		a.createTunnelForm(&tunnel), a.window)
+		form, func(confirmed bool) {
+			if confirmed {
+				a.log("编辑隧道确认")
+			}
+		}, a.window)
 }
 
 // onDeleteTunnel 删除隧道
 func (a *App) onDeleteTunnel() {
-	selected := a.tunnelList.SelectedIndex()
-	if selected < 0 || selected >= len(a.tunnels) {
+	if a.selectedIdx < 0 || a.selectedIdx >= len(a.tunnels) {
 		dialog.ShowInformation("提示", "请先选择要删除的隧道", a.window)
 		return
 	}
-	
-	tunnel := a.tunnels[selected]
-	
+
+	tunnel := a.tunnels[a.selectedIdx]
+
 	dialog.ShowConfirm("确认", fmt.Sprintf("确定要删除隧道 %s 吗?", tunnel.Name),
 		func(confirmed bool) {
 			if confirmed {
-				a.deleteTunnel(selected)
+				a.deleteTunnel(a.selectedIdx)
+				a.selectedIdx = -1
 			}
 		}, a.window)
 }
@@ -186,27 +205,27 @@ func (a *App) onDeleteTunnel() {
 func (a *App) createTunnelForm(tunnel *TunnelItem) fyne.CanvasObject {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("隧道名称")
-	
+
 	serialEntry := widget.NewEntry()
 	serialEntry.SetPlaceHolder("COM1")
-	
+
 	baudSelect := widget.NewSelect([]string{"9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"}, func(s string) {})
 	baudSelect.SetSelected("115200")
-	
+
 	modeSelect := widget.NewSelect([]string{"client", "server", "tunnel"}, func(s string) {})
 	modeSelect.SetSelected("tunnel")
-	
+
 	tcpHostEntry := widget.NewEntry()
 	tcpHostEntry.SetPlaceHolder("127.0.0.1")
-	
+
 	tcpPortEntry := widget.NewEntry()
 	tcpPortEntry.SetPlaceHolder("9000")
-	
+
 	if tunnel != nil {
 		nameEntry.SetText(tunnel.Name)
 		modeSelect.SetSelected(tunnel.Mode)
 	}
-	
+
 	form := container.NewVBox(
 		widget.NewLabel("隧道名称"),
 		nameEntry,
@@ -221,36 +240,34 @@ func (a *App) createTunnelForm(tunnel *TunnelItem) fyne.CanvasObject {
 		widget.NewLabel("TCP端口"),
 		tcpPortEntry,
 	)
-	
+
 	return form
 }
 
 // onStartTunnel 启动隧道
 func (a *App) onStartTunnel() {
-	selected := a.tunnelList.SelectedIndex()
-	if selected < 0 || selected >= len(a.tunnels) {
+	if a.selectedIdx < 0 || a.selectedIdx >= len(a.tunnels) {
 		dialog.ShowInformation("提示", "请先选择要启动的隧道", a.window)
 		return
 	}
-	
-	tunnel := a.tunnels[selected]
+
+	tunnel := a.tunnels[a.selectedIdx]
 	a.log(fmt.Sprintf("启动隧道: %s", tunnel.Name))
-	
+
 	// 启动隧道逻辑
 	a.statusLabel.SetText(fmt.Sprintf("隧道 %s 已启动", tunnel.Name))
 }
 
 // onStopTunnel 停止隧道
 func (a *App) onStopTunnel() {
-	selected := a.tunnelList.SelectedIndex()
-	if selected < 0 || selected >= len(a.tunnels) {
+	if a.selectedIdx < 0 || a.selectedIdx >= len(a.tunnels) {
 		dialog.ShowInformation("提示", "请先选择要停止的隧道", a.window)
 		return
 	}
-	
-	tunnel := a.tunnels[selected]
+
+	tunnel := a.tunnels[a.selectedIdx]
 	a.log(fmt.Sprintf("停止隧道: %s", tunnel.Name))
-	
+
 	a.statusLabel.SetText(fmt.Sprintf("隧道 %s 已停止", tunnel.Name))
 }
 
@@ -258,13 +275,13 @@ func (a *App) onStopTunnel() {
 func (a *App) loadTunnels() {
 	cfg := a.configMgr.Get()
 	a.tunnels = make([]TunnelItem, 0, len(cfg.Tunnels))
-	
+
 	for _, t := range cfg.Tunnels {
 		status := "已停止"
 		if t.Enabled {
 			status = "运行中"
 		}
-		
+
 		a.tunnels = append(a.tunnels, TunnelItem{
 			Name:    t.Name,
 			Mode:    t.Mode,
@@ -272,7 +289,7 @@ func (a *App) loadTunnels() {
 			Enabled: t.Enabled,
 		})
 	}
-	
+
 	a.tunnelList.Refresh()
 	a.log(fmt.Sprintf("加载了 %d 个隧道配置", len(a.tunnels)))
 }
@@ -282,19 +299,19 @@ func (a *App) deleteTunnel(index int) {
 	if index >= len(a.tunnels) {
 		return
 	}
-	
+
 	tunnel := a.tunnels[index]
-	
+
 	// 停止隧道
 	a.tunnelMgr.Stop(tunnel.Name)
-	
+
 	// 从配置中删除
 	a.configMgr.RemoveTunnel(tunnel.Name)
-	
+
 	// 从列表中删除
 	a.tunnels = append(a.tunnels[:index], a.tunnels[index+1:]...)
 	a.tunnelList.Refresh()
-	
+
 	a.log(fmt.Sprintf("删除了隧道: %s", tunnel.Name))
 	a.statusLabel.SetText("隧道已删除")
 }
@@ -303,12 +320,6 @@ func (a *App) deleteTunnel(index int) {
 func (a *App) log(message string) {
 	text := a.logView.Text()
 	a.logView.SetText(text + message + "\n")
-	
-	// 自动滚动到底部
-	rows := a.logView.RowLines()
-	if rows > 0 {
-		a.logView.ScrollToRow(rows - 1)
-	}
 }
 
 // ShowAbout 显示关于对话框
