@@ -196,6 +196,52 @@ serialserver/
 - **Wails CLI** (for Windows GUI build)
 - **com0com** (Windows virtual serial port driver)
 
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether it's reporting bugs, suggesting features, improving documentation, or submitting code - we appreciate all contributions.
+
+### Ways to Contribute
+
+- **Report Issues**: [Submit an Issue](https://github.com/wayyoungboy/serialserver/issues) to describe bugs or feature suggestions
+- **Submit Code**: Fork → Modify → Submit Pull Request
+- **Improve Documentation**: Help improve README, API docs, or add usage examples
+- **Share Experience**: Share your use cases and best practices with the community
+
+### Development Guide
+
+```bash
+# Clone the project
+git clone https://github.com/wayyoungboy/serialserver.git
+cd serialserver
+
+# Install dependencies
+go mod download
+
+# Run tests
+make test
+
+# Start development server
+make dev-server
+```
+
+### Code Standards
+
+- Follow Go official code conventions
+- Run `go fmt` before committing
+- Add test cases for new features
+- Use Conventional Commits format for commit messages
+
+## 📞 Contact
+
+- **Issues**: [GitHub Issues](https://github.com/wayyoungboy/serialserver/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/wayyoungboy/serialserver/discussions)
+
+## ⭐ Star History
+
+If this project helps you, please consider giving it a Star ⭐!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=wayyoungboy/serialserver&type=Date)](https://star-history.com/#wayyoungboy/serialserver&Date)
+
 ## License
 
-MIT License
+[MIT License](LICENSE)

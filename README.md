@@ -196,6 +196,52 @@ serialserver/
 - **Wails CLI** (构建 Windows GUI)
 - **com0com** (Windows 虚拟串口驱动)
 
+## 🤝 参与贡献
+
+欢迎参与 VSP 项目共建！无论是提交 Bug、建议新功能、改进文档还是提交代码，我们都非常欢迎。
+
+### 贡献方式
+
+- **报告问题**: [提交 Issue](https://github.com/wayyoungboy/serialserver/issues) 描述 Bug 或功能建议
+- **提交代码**: Fork → 修改 → 提交 Pull Request
+- **完善文档**: 帮助改进 README、API 文档或添加使用示例
+- **分享经验**: 在社区分享你的使用场景和最佳实践
+
+### 开发指南
+
+```bash
+# 克隆项目
+git clone https://github.com/wayyoungboy/serialserver.git
+cd serialserver
+
+# 安装依赖
+go mod download
+
+# 运行测试
+make test
+
+# 启动开发服务
+make dev-server
+```
+
+### 代码规范
+
+- 遵循 Go 官方代码规范
+- 提交前运行 `go fmt` 格式化代码
+- 为新功能添加测试用例
+- 提交信息使用约定式提交格式 (Conventional Commits)
+
+## 📞 联系方式
+
+- **Issues**: [GitHub Issues](https://github.com/wayyoungboy/serialserver/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/wayyoungboy/serialserver/discussions)
+
+## ⭐ Star History
+
+如果这个项目对你有帮助，欢迎给一个 Star ⭐ 支持一下！
+
+[![Star History Chart](https://api.star-history.com/svg?repos=wayyoungboy/serialserver&type=Date)](https://star-history.com/#wayyoungboy/serialserver&Date)
+
 ## 许可证
 
-MIT License
+[MIT License](LICENSE)
