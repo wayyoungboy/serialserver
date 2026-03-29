@@ -1,8 +1,8 @@
 # VSP - 虚拟串口云平台
 
-[![Build](https://github.com/your-repo/serialserver/actions/workflows/release.yml/badge.svg)](https://github.com/your-repo/serialserver/actions/workflows/release.yml)
+[![Build](https://github.com/wayyoungboy/serialserver/actions/workflows/release.yml/badge.svg)](https://github.com/wayyoungboy/serialserver/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
 
 VSP (Virtual Serial Port) 是一个商业化虚拟串口云平台，支持通过网络远程访问串口设备。适用于 PLC 远程调试、IoT 设备管理、工业自动化等场景。
 
@@ -131,7 +131,7 @@ make package
 
 ```powershell
 cd vsp-windows
-wails build
+wails build -clean
 ```
 
 ## API 文档
@@ -172,6 +172,7 @@ serialserver/
 │   ├── cmd/device-client/
 │   └── internal/
 ├── vsp-windows/            # Windows GUI 客户端
+│   ├── main.go
 │   ├── app.go
 │   ├── frontend/           # Vue.js 前端
 │   ├── internal/
@@ -190,7 +191,7 @@ serialserver/
 
 ## 依赖
 
-- **Go 1.21+**
+- **Go 1.24+**
 - **Node.js 20+** (构建 Windows GUI)
 - **Wails CLI** (构建 Windows GUI)
 - **com0com** (Windows 虚拟串口驱动)

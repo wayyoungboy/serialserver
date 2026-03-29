@@ -14,7 +14,7 @@ on:
         required: false
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.24'
 
 jobs:
   # ==================== Server Build ====================
@@ -40,17 +40,19 @@ jobs:
           name: vsp-server-linux
           path: vsp-server/vsp-server
 
-  # ==================== Device Client Build ====================
+  # ==================== Device Client Build (Linux/Windows) ====================
   build-device-client:
     name: Build Device Client
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
             goarch: arm64
+          - goos: windows
+            goarch: amd64
     steps:
       - uses: actions/checkout@v4
 
@@ -75,6 +77,36 @@ jobs:
         with:
           name: device-client-${{ matrix.goos }}-${{ matrix.goarch }}
           path: vsp-client/device-client-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  # ==================== Device Client Build (macOS - requires CGO) ====================
+  build-device-client-darwin:
+    name: Build Device Client (macOS)
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build Device Client
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          cd vsp-client
+          go build -ldflags="-s -w" -o device-client-darwin-${{ matrix.goarch }} ./cmd/device-client
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-client-darwin-${{ matrix.goarch }}
+          path: vsp-client/device-client-darwin-${{ matrix.goarch }}
 
   # ==================== Windows Client Build (Wails) ====================
   build-windows-client:
@@ -120,7 +152,7 @@ jobs:
   # ==================== Release ====================
   create-release:
     name: Create Release
-    needs: [build-server, build-device-client, build-windows-client]
+    needs: [build-server, build-device-client, build-device-client-darwin, build-windows-client]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
