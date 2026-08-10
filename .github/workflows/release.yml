@@ -288,7 +288,20 @@ jobs:
           cd vsp-windows
           New-Item -ItemType Directory -Force build/installer | Out-Null
           $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "0.2.0-ci" }
-          makensis "/DAPP_VERSION=$version" packaging/windows/VSPManager.nsi
+          $makensis = (Get-Command makensis -ErrorAction SilentlyContinue).Source
+          if (-not $makensis) {
+            $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
+            $candidates = @(
+              (Join-Path $programFilesX86 "NSIS\makensis.exe"),
+              (Join-Path $env:ProgramData "chocolatey\bin\makensis.exe")
+            )
+            $makensis = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $makensis) {
+            Write-Error "makensis.exe was not found after installing NSIS."
+            exit 1
+          }
+          & $makensis "/DAPP_VERSION=$version" packaging/windows/VSPManager.nsi
 
       - name: Create ZIP
         run: |
