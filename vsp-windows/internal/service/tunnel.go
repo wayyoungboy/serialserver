@@ -2,377 +2,562 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
-	"vsp-manager/internal/driver"
-	"vsp-manager/internal/network"
+	"github.com/gorilla/websocket"
 )
 
-// TunnelStatus represents the current status of the tunnel
+const protocolVersion = "vsp.relay.v2"
+
+// TunnelConfig configures a V2 local TCP gateway session.
+type TunnelConfig struct {
+	ServerURL     string
+	UserToken     string
+	DeviceID      uint
+	MappingID     string
+	ListenAddress string
+}
+
+// TunnelStatus represents the current V2 gateway status.
 type TunnelStatus struct {
 	Connected      bool      `json:"connected"`
-	VisiblePort    string    `json:"visible_port,omitempty"`
-	HiddenPort     string    `json:"hidden_port,omitempty"`
-	DeviceOnline   bool      `json:"device_online"`
-	DeviceStatus   string    `json:"device_status,omitempty"`
+	LocalListening bool      `json:"local_listening"`
+	RelayConnected bool      `json:"relay_connected"`
+	ListenAddress  string    `json:"listen_address,omitempty"`
+	DeviceID       uint      `json:"device_id,omitempty"`
+	MappingID      string    `json:"mapping_id,omitempty"`
+	MappingName    string    `json:"mapping_name,omitempty"`
+	RemotePort     string    `json:"remote_port,omitempty"`
+	SessionID      string    `json:"session_id,omitempty"`
 	BytesSent      int64     `json:"bytes_sent"`
 	BytesReceived  int64     `json:"bytes_received"`
 	ConnectedSince time.Time `json:"connected_since,omitempty"`
 	Error          string    `json:"error,omitempty"`
+	LastEvent      string    `json:"last_event,omitempty"`
 }
 
-// TunnelService manages the serial-to-WebSocket tunnel
+type controlMessage struct {
+	Type      string   `json:"type"`
+	Protocol  string   `json:"protocol,omitempty"`
+	Role      string   `json:"role,omitempty"`
+	DeviceID  uint     `json:"device_id,omitempty"`
+	UserToken string   `json:"user_token,omitempty"`
+	MappingID string   `json:"mapping_id,omitempty"`
+	Mapping   *Mapping `json:"mapping,omitempty"`
+	Status    string   `json:"status,omitempty"`
+	Message   string   `json:"message,omitempty"`
+	SessionID string   `json:"session_id,omitempty"`
+}
+
+// Mapping describes a device-side serial mapping announced through V2 relay.
+type Mapping struct {
+	ID     string         `json:"id"`
+	Name   string         `json:"name,omitempty"`
+	Serial SerialSettings `json:"serial"`
+}
+
+// SerialSettings are metadata from the device; the desktop gateway does not apply them.
+type SerialSettings struct {
+	Port        string `json:"port"`
+	BaudRate    int    `json:"baud_rate"`
+	DataBits    int    `json:"data_bits"`
+	StopBits    int    `json:"stop_bits"`
+	Parity      string `json:"parity"`
+	FlowControl string `json:"flow_control,omitempty"`
+}
+
+type lockedWS struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+// TunnelService manages a local TCP endpoint bridged to the V2 relay.
 type TunnelService struct {
-	wsClient    *network.WSClient
-	portClient  *driver.PortClient
-	com0com     *driver.Com0ComManager
+	mu        sync.RWMutex
+	cfg       TunnelConfig
+	wsURL     string
+	running   bool
+	listener  net.Listener
+	wsConn    *websocket.Conn
+	localConn net.Conn
+	ctx       context.Context
+	cancel    context.CancelFunc
 
-	mu          sync.RWMutex
-	running     bool
-	currentPair *driver.PortPair
-	stopChan    chan struct{}
-	ctx         context.Context
-	cancel      context.CancelFunc
-
-	// Statistics
+	relayConnected bool
+	sessionID      string
+	mappingName    string
+	remotePort     string
+	errorMessage   string
+	lastEvent      string
 	bytesSent      int64
 	bytesReceived  int64
 	connectedTime  time.Time
 
-	// Event callbacks
 	onStatusChange func(TunnelStatus)
 	onDataTransfer func(direction string, bytes int)
 }
 
-// NewTunnelService creates a new tunnel service
+// NewTunnelService creates a V2 TCP gateway service.
 func NewTunnelService() *TunnelService {
-	return &TunnelService{
-		com0com:     driver.NewCom0ComManager(),
-		portClient:  driver.NewPortClient(),
-		stopChan:    make(chan struct{}),
-	}
+	return &TunnelService{}
 }
 
-// Connect establishes the complete tunnel connection
-// Steps:
-// 1. Create virtual port pair with com0com
-// 2. Open hidden port (CNCA/CNCB) with PortClient
-// 3. Connect WebSocket to server with device key
-// 4. Set up data callback from WebSocket -> PortClient
-// 5. Start data forwarding goroutine
-func (s *TunnelService) Connect(host string, port int, deviceKey string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// Connect starts a local TCP listener and bridges each accepted connection to the V2 relay.
+func (s *TunnelService) Connect(cfg TunnelConfig) error {
+	if cfg.UserToken == "" {
+		return fmt.Errorf("user token is required")
+	}
+	if cfg.DeviceID == 0 {
+		return fmt.Errorf("device id is required")
+	}
+	if cfg.MappingID == "" {
+		cfg.MappingID = "default"
+	}
+	if cfg.ListenAddress == "" {
+		cfg.ListenAddress = "127.0.0.1:7000"
+	}
 
+	wsURL, err := buildRelayURL(cfg.ServerURL, "/api/v2/relay/gateway")
+	if err != nil {
+		return err
+	}
+
+	listener, err := net.Listen("tcp", cfg.ListenAddress)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", cfg.ListenAddress, err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s.mu.Lock()
 	if s.running {
-		return fmt.Errorf("tunnel already running")
-	}
-
-	// Check if com0com is installed
-	if !s.com0com.IsInstalled() {
-		return fmt.Errorf("com0com driver not installed")
-	}
-
-	log.Printf("[TunnelService] Starting connection...")
-
-	// Step 1: Create virtual port pair
-	pair, err := s.com0com.CreatePortPair()
-	if err != nil {
-		return fmt.Errorf("failed to create port pair: %w", err)
-	}
-	s.currentPair = pair
-	log.Printf("[TunnelService] Created port pair: visible=%s, hidden=%s", pair.VisiblePort, pair.HiddenPort)
-
-	// Step 2: Open hidden port
-	err = s.portClient.Open(pair.HiddenPort, 115200)
-	if err != nil {
-		// Clean up port pair on failure
-		_ = s.com0com.RemovePortPair(pair.HiddenPort)
-		s.currentPair = nil
-		return fmt.Errorf("failed to open hidden port %s: %w", pair.HiddenPort, err)
-	}
-	log.Printf("[TunnelService] Opened hidden port: %s", pair.HiddenPort)
-
-	// Step 3: Create WebSocket client and connect
-	s.wsClient = network.NewWSClient(host, port)
-	s.wsClient.SetDeviceKey(deviceKey)
-
-	// Create context for this connection
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-
-	// Step 4: Set up WebSocket data callback -> write to serial port
-	s.wsClient.OnData(func(data []byte) {
-		n, err := s.portClient.Write(data)
-		if err != nil {
-			log.Printf("[TunnelService] Write to serial failed: %v", err)
-			return
-		}
-		s.mu.Lock()
-		s.bytesReceived += int64(n)
 		s.mu.Unlock()
-		log.Printf("[TunnelService] WS->Serial: %d bytes", n)
-
-		if s.onDataTransfer != nil {
-			s.onDataTransfer("receive", n)
-		}
-	})
-
-	// Set up status callback
-	s.wsClient.OnStatus(func(status string) {
-		s.notifyStatusChange()
-	})
-
-	// Set up error callback
-	s.wsClient.OnError(func(err error) {
-		log.Printf("[TunnelService] WebSocket error: %v", err)
-		s.notifyStatusChange()
-	})
-
-	// Set up disconnected callback
-	s.wsClient.OnDisconnected(func() {
-		log.Printf("[TunnelService] WebSocket disconnected")
-		s.mu.Lock()
-		s.running = false
-		s.mu.Unlock()
-		s.notifyStatusChange()
-	})
-
-	// Connect to server
-	err = s.wsClient.Connect(s.ctx)
-	if err != nil {
-		// Clean up on failure
-		_ = s.portClient.Close()
-		_ = s.com0com.RemovePortPair(pair.HiddenPort)
-		s.currentPair = nil
-		return fmt.Errorf("WebSocket connection failed: %w", err)
+		_ = listener.Close()
+		cancel()
+		return fmt.Errorf("gateway already running")
 	}
-	log.Printf("[TunnelService] WebSocket connected")
-
-	// Step 5: Start data forwarding (Serial -> WebSocket)
+	s.cfg = cfg
+	s.wsURL = wsURL
+	s.listener = listener
+	s.ctx = ctx
+	s.cancel = cancel
 	s.running = true
-	s.connectedTime = time.Now()
-	s.stopChan = make(chan struct{})
-	go s.forwardingLoop()
-
-	log.Printf("[TunnelService] Tunnel established successfully")
-	s.notifyStatusChange()
-
-	return nil
-}
-
-// Disconnect closes all connections and removes the virtual port pair
-func (s *TunnelService) Disconnect() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if !s.running {
-		return nil // Already disconnected
-	}
-
-	log.Printf("[TunnelService] Disconnecting...")
-
-	// Stop forwarding
-	s.running = false
-	if s.cancel != nil {
-		s.cancel()
-	}
-	close(s.stopChan)
-
-	// Close WebSocket
-	if s.wsClient != nil {
-		_ = s.wsClient.Close()
-		s.wsClient = nil
-	}
-
-	// Close serial port
-	if s.portClient != nil {
-		_ = s.portClient.Close()
-	}
-
-	// Remove port pair
-	if s.currentPair != nil {
-		err := s.com0com.RemovePortPair(s.currentPair.HiddenPort)
-		if err != nil {
-			log.Printf("[TunnelService] Failed to remove port pair: %v", err)
-		}
-		s.currentPair = nil
-	}
-
-	// Reset statistics
+	s.relayConnected = false
+	s.sessionID = ""
+	s.mappingName = ""
+	s.remotePort = ""
+	s.errorMessage = ""
+	s.lastEvent = fmt.Sprintf("Listening on %s", cfg.ListenAddress)
 	s.bytesSent = 0
 	s.bytesReceived = 0
+	s.connectedTime = time.Time{}
+	s.mu.Unlock()
 
-	log.Printf("[TunnelService] Disconnected successfully")
+	log.Printf("[TunnelService] V2 local TCP endpoint listening on %s", cfg.ListenAddress)
 	s.notifyStatusChange()
-
+	go s.acceptLoop(ctx, listener)
 	return nil
 }
 
-// forwardingLoop reads from serial port and sends to WebSocket
-func (s *TunnelService) forwardingLoop() {
-	log.Printf("[TunnelService] Forwarding loop started")
+// Disconnect closes the local listener, active local client, and relay session.
+func (s *TunnelService) Disconnect() error {
+	s.mu.Lock()
+	if !s.running {
+		s.mu.Unlock()
+		return nil
+	}
 
-	buf := make([]byte, 4096) // Buffer for serial reads
+	cancel := s.cancel
+	listener := s.listener
+	wsConn := s.wsConn
+	localConn := s.localConn
 
+	s.running = false
+	s.relayConnected = false
+	s.sessionID = ""
+	s.lastEvent = "Disconnected"
+	s.listener = nil
+	s.wsConn = nil
+	s.localConn = nil
+	s.cancel = nil
+	s.ctx = nil
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if listener != nil {
+		_ = listener.Close()
+	}
+	if wsConn != nil {
+		_ = wsConn.Close()
+	}
+	if localConn != nil {
+		_ = localConn.Close()
+	}
+
+	log.Printf("[TunnelService] V2 gateway disconnected")
+	s.notifyStatusChange()
+	return nil
+}
+
+func (s *TunnelService) acceptLoop(ctx context.Context, listener net.Listener) {
+	for {
+		localConn, err := listener.Accept()
+		if err != nil {
+			if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
+				return
+			}
+			s.setError(fmt.Sprintf("accept local connection: %v", err))
+			continue
+		}
+
+		s.setLocalConn(localConn)
+		s.setLastEvent(fmt.Sprintf("Local client connected from %s", localConn.RemoteAddr()))
+		if err := s.handleSession(ctx, localConn); err != nil && ctx.Err() == nil {
+			s.setError(err.Error())
+			log.Printf("[TunnelService] V2 session ended: %v", err)
+		}
+		s.clearSession(localConn)
+	}
+}
+
+func (s *TunnelService) handleSession(ctx context.Context, localConn net.Conn) error {
+	conn, _, err := websocket.DefaultDialer.DialContext(ctx, s.wsURL, nil)
+	if err != nil {
+		return fmt.Errorf("connect relay: %w", err)
+	}
+	defer conn.Close()
+
+	ws := &lockedWS{conn: conn}
+	s.setWSConn(conn)
+
+	if err := ws.writeJSON(controlMessage{
+		Type:      "hello",
+		Protocol:  protocolVersion,
+		Role:      "gateway",
+		DeviceID:  s.cfg.DeviceID,
+		UserToken: s.cfg.UserToken,
+		MappingID: s.cfg.MappingID,
+	}); err != nil {
+		return fmt.Errorf("send relay hello: %w", err)
+	}
+
+	var ready controlMessage
+	if err := conn.ReadJSON(&ready); err != nil {
+		return fmt.Errorf("read relay response: %w", err)
+	}
+	if ready.Type == "error" {
+		return fmt.Errorf("relay rejected gateway: %s", ready.Message)
+	}
+	if ready.Type != "session_ready" {
+		return fmt.Errorf("unexpected relay response: %+v", ready)
+	}
+
+	s.setRelayReady(ready)
+
+	errc := make(chan error, 2)
+	done := make(chan struct{})
+	go s.localToRelay(ctx, localConn, ws, done, errc)
+	go s.relayToLocal(ctx, localConn, ws, done, errc)
+
+	select {
+	case err := <-errc:
+		close(done)
+		return err
+	case <-ctx.Done():
+		close(done)
+		return ctx.Err()
+	}
+}
+
+func (s *TunnelService) localToRelay(ctx context.Context, localConn net.Conn, ws *lockedWS, done <-chan struct{}, errc chan<- error) {
+	buf := make([]byte, 32*1024)
 	for {
 		select {
-		case <-s.stopChan:
-			log.Printf("[TunnelService] Forwarding loop stopped by stopChan")
+		case <-ctx.Done():
+			errc <- ctx.Err()
 			return
-		case <-s.ctx.Done():
-			log.Printf("[TunnelService] Forwarding loop stopped by context")
+		case <-done:
 			return
 		default:
 		}
 
-		// Read from serial port
-		n, err := s.portClient.Read(buf)
-		if err != nil {
-			s.mu.RLock()
-			running := s.running
-			s.mu.RUnlock()
-
-			if !running {
-				log.Printf("[TunnelService] Read error during shutdown: %v", err)
+		n, err := localConn.Read(buf)
+		if n > 0 {
+			payload := append([]byte(nil), buf[:n]...)
+			if writeErr := ws.writeBinary(payload); writeErr != nil {
+				errc <- fmt.Errorf("write relay binary: %w", writeErr)
 				return
 			}
-
-			log.Printf("[TunnelService] Serial read error: %v", err)
-			// Brief pause before retrying
-			time.Sleep(100 * time.Millisecond)
-			continue
+			s.addBytes("send", n)
 		}
-
-		if n == 0 {
-			continue // No data
-		}
-
-		// Send to WebSocket
-		data := buf[:n]
-		err = s.wsClient.Send(data)
 		if err != nil {
-			log.Printf("[TunnelService] WebSocket send error: %v", err)
-			continue
-		}
-
-		s.mu.Lock()
-		s.bytesSent += int64(n)
-		s.mu.Unlock()
-
-		log.Printf("[TunnelService] Serial->WS: %d bytes", n)
-
-		if s.onDataTransfer != nil {
-			s.onDataTransfer("send", n)
+			if errors.Is(err, io.EOF) {
+				errc <- fmt.Errorf("local client closed")
+				return
+			}
+			errc <- fmt.Errorf("read local client: %w", err)
+			return
 		}
 	}
 }
 
-// StartForwarding starts the data forwarding loop (called internally by Connect)
-func (s *TunnelService) StartForwarding() {
-	s.mu.Lock()
-	if s.running {
-		s.mu.Unlock()
-		return
-	}
-	s.running = true
-	s.stopChan = make(chan struct{})
-	s.mu.Unlock()
+func (s *TunnelService) relayToLocal(ctx context.Context, localConn net.Conn, ws *lockedWS, done <-chan struct{}, errc chan<- error) {
+	for {
+		select {
+		case <-ctx.Done():
+			errc <- ctx.Err()
+			return
+		case <-done:
+			return
+		default:
+		}
 
-	go s.forwardingLoop()
+		messageType, data, err := ws.conn.ReadMessage()
+		if err != nil {
+			errc <- fmt.Errorf("read relay: %w", err)
+			return
+		}
+
+		switch messageType {
+		case websocket.BinaryMessage:
+			if len(data) == 0 {
+				continue
+			}
+			if _, err := localConn.Write(data); err != nil {
+				errc <- fmt.Errorf("write local client: %w", err)
+				return
+			}
+			s.addBytes("receive", len(data))
+		case websocket.TextMessage:
+			if err := s.handleControl(ws, data); err != nil {
+				errc <- err
+				return
+			}
+		}
+	}
 }
 
-// StopForwarding stops the data forwarding loop
-func (s *TunnelService) StopForwarding() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if !s.running {
-		return
+func (s *TunnelService) handleControl(ws *lockedWS, data []byte) error {
+	var msg controlMessage
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return nil
 	}
 
-	s.running = false
-	close(s.stopChan)
+	switch msg.Type {
+	case "ping":
+		return ws.writeJSON(controlMessage{Type: "pong", Protocol: protocolVersion})
+	case "session_ready":
+		s.setRelayReady(msg)
+	case "session_closed":
+		return fmt.Errorf("session closed: %s", msg.Message)
+	case "error":
+		return fmt.Errorf("relay error: %s", msg.Message)
+	}
+	return nil
 }
 
-// GetStatus returns the current tunnel status
+// Cleanup stops the V2 gateway.
+func (s *TunnelService) Cleanup() error {
+	return s.Disconnect()
+}
+
+// GetStatus returns the current tunnel status.
 func (s *TunnelService) GetStatus() TunnelStatus {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	status := TunnelStatus{
-		Connected:      s.running,
+	return TunnelStatus{
+		Connected:      s.relayConnected,
+		LocalListening: s.running,
+		RelayConnected: s.relayConnected,
+		ListenAddress:  s.cfg.ListenAddress,
+		DeviceID:       s.cfg.DeviceID,
+		MappingID:      s.cfg.MappingID,
+		MappingName:    s.mappingName,
+		RemotePort:     s.remotePort,
+		SessionID:      s.sessionID,
 		BytesSent:      s.bytesSent,
 		BytesReceived:  s.bytesReceived,
 		ConnectedSince: s.connectedTime,
+		Error:          s.errorMessage,
+		LastEvent:      s.lastEvent,
 	}
-
-	if s.currentPair != nil {
-		status.VisiblePort = s.currentPair.VisiblePort
-		status.HiddenPort = s.currentPair.HiddenPort
-	}
-
-	if s.wsClient != nil {
-		status.DeviceStatus = s.wsClient.DeviceOnlineStatus
-		status.DeviceOnline = s.wsClient.DeviceOnlineStatus == "device_online"
-	}
-
-	return status
 }
 
-// IsConnected returns whether the tunnel is active
+// IsConnected returns whether a relay session is active.
 func (s *TunnelService) IsConnected() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.relayConnected
+}
+
+// IsListening returns whether the local TCP endpoint is open.
+func (s *TunnelService) IsListening() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.running
 }
 
-// GetVisiblePort returns the visible COM port name (e.g., COM5)
-func (s *TunnelService) GetVisiblePort() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.currentPair == nil {
-		return ""
-	}
-	return s.currentPair.VisiblePort
-}
-
-// notifyStatusChange fires the status change callback
-func (s *TunnelService) notifyStatusChange() {
-	if s.onStatusChange != nil {
-		status := s.GetStatus()
-		s.onStatusChange(status)
-	}
-}
-
-// OnStatusChange registers a callback for status changes
+// OnStatusChange registers a callback for status changes.
 func (s *TunnelService) OnStatusChange(callback func(TunnelStatus)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onStatusChange = callback
 }
 
-// OnDataTransfer registers a callback for data transfer events
+// OnDataTransfer registers a callback for data transfer events.
 func (s *TunnelService) OnDataTransfer(callback func(direction string, bytes int)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onDataTransfer = callback
 }
 
-// Cleanup removes all created port pairs (for application exit)
-// This should be called when the application is shutting down
-func (s *TunnelService) Cleanup() error {
-	// First disconnect if running
-	s.Disconnect()
-
-	// Remove all created ports by this session
-	return s.com0com.RemoveAllCreatedPorts()
+func (s *TunnelService) setLocalConn(conn net.Conn) {
+	s.mu.Lock()
+	s.localConn = conn
+	s.errorMessage = ""
+	s.mu.Unlock()
+	s.notifyStatusChange()
 }
 
-// CheckCom0ComInstalled checks if com0com driver is installed
-func (s *TunnelService) CheckCom0ComInstalled() bool {
-	return s.com0com.IsInstalled()
+func (s *TunnelService) setWSConn(conn *websocket.Conn) {
+	s.mu.Lock()
+	s.wsConn = conn
+	s.mu.Unlock()
+}
+
+func (s *TunnelService) setRelayReady(msg controlMessage) {
+	s.mu.Lock()
+	s.relayConnected = true
+	s.sessionID = msg.SessionID
+	s.connectedTime = time.Now()
+	s.errorMessage = ""
+	s.lastEvent = fmt.Sprintf("Relay session ready: %s", msg.SessionID)
+	if msg.Mapping != nil {
+		s.mappingName = msg.Mapping.Name
+		s.remotePort = msg.Mapping.Serial.Port
+		if msg.Mapping.ID != "" {
+			s.cfg.MappingID = msg.Mapping.ID
+		}
+	}
+	s.mu.Unlock()
+	s.notifyStatusChange()
+}
+
+func (s *TunnelService) clearSession(localConn net.Conn) {
+	s.mu.Lock()
+	if s.localConn == localConn {
+		s.localConn = nil
+	}
+	if s.wsConn != nil {
+		_ = s.wsConn.Close()
+		s.wsConn = nil
+	}
+	s.relayConnected = false
+	s.sessionID = ""
+	if s.running {
+		s.lastEvent = "Waiting for local TCP client"
+	}
+	s.mu.Unlock()
+
+	_ = localConn.Close()
+	s.notifyStatusChange()
+}
+
+func (s *TunnelService) setError(message string) {
+	s.mu.Lock()
+	s.errorMessage = message
+	s.lastEvent = message
+	s.relayConnected = false
+	s.mu.Unlock()
+	s.notifyStatusChange()
+}
+
+func (s *TunnelService) setLastEvent(message string) {
+	s.mu.Lock()
+	s.lastEvent = message
+	s.mu.Unlock()
+	s.notifyStatusChange()
+}
+
+func (s *TunnelService) addBytes(direction string, n int) {
+	s.mu.Lock()
+	switch direction {
+	case "send":
+		s.bytesSent += int64(n)
+		s.lastEvent = fmt.Sprintf("TX %d bytes", n)
+	case "receive":
+		s.bytesReceived += int64(n)
+		s.lastEvent = fmt.Sprintf("RX %d bytes", n)
+	}
+	callback := s.onDataTransfer
+	s.mu.Unlock()
+
+	if callback != nil {
+		callback(direction, n)
+	}
+	s.notifyStatusChange()
+}
+
+func (s *TunnelService) notifyStatusChange() {
+	s.mu.RLock()
+	callback := s.onStatusChange
+	s.mu.RUnlock()
+	if callback != nil {
+		callback(s.GetStatus())
+	}
+}
+
+func (ws *lockedWS) writeJSON(value any) error {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.conn.WriteJSON(value)
+}
+
+func (ws *lockedWS) writeBinary(data []byte) error {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.conn.WriteMessage(websocket.BinaryMessage, data)
+}
+
+func buildRelayURL(serverURL, path string) (string, error) {
+	serverURL = strings.TrimSpace(serverURL)
+	if serverURL == "" {
+		serverURL = "http://localhost:9000"
+	}
+	if !strings.Contains(serverURL, "://") {
+		serverURL = "http://" + serverURL
+	}
+
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid server URL: %w", err)
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("invalid server URL: missing host")
+	}
+	switch u.Scheme {
+	case "http":
+		u.Scheme = "ws"
+	case "https":
+		u.Scheme = "wss"
+	case "ws", "wss":
+	default:
+		return "", fmt.Errorf("unsupported server URL scheme %q", u.Scheme)
+	}
+	u.Path = strings.TrimRight(u.Path, "/") + path
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String(), nil
 }

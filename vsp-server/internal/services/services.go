@@ -32,7 +32,7 @@ type Claims struct {
 
 // AuthService 认证服务
 type AuthService struct {
-	jwtSecret []byte
+	jwtSecret   []byte
 	expireHours int
 }
 
@@ -150,21 +150,19 @@ func (s *DeviceService) GenerateDeviceKey() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// CreateDevice 创建设备
-func (s *DeviceService) CreateDevice(userID, tenantID uint, name, serialPort string, baudRate int) (*models.Device, error) {
+// CreateDevice creates the cloud-side device identity. Serial settings are announced by device-agent-v2.
+func (s *DeviceService) CreateDevice(userID, tenantID uint, name string) (*models.Device, error) {
 	deviceKey, err := s.GenerateDeviceKey()
 	if err != nil {
 		return nil, err
 	}
 
 	device := &models.Device{
-		TenantID:   tenantID,
-		UserID:     userID,
-		Name:       name,
-		DeviceKey:  deviceKey,
-		SerialPort: serialPort,
-		BaudRate:   baudRate,
-		Status:     "offline",
+		TenantID:  tenantID,
+		UserID:    userID,
+		Name:      name,
+		DeviceKey: deviceKey,
+		Status:    "offline",
 	}
 
 	if err := database.DB.Create(device).Error; err != nil {

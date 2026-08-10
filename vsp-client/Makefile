@@ -1,9 +1,7 @@
-# VSP Manager Makefile
+# VSP V2 CLI Makefile
 
 # 设置
-NAME = vsp-manager
 VERSION = 1.0.0
-AUTHOR = 韦永博
 GO = go
 GOFLAGS = -v
 
@@ -14,11 +12,9 @@ GOARCH ?= $(shell $(GO) env GOARCH)
 # 源文件
 PKGS = $(shell $(GO) list ./...)
 
-# 输出
 DIST = dist
-WIN_EXE = $(NAME).exe
-LIN_BIN = $(NAME)
-MAC_BIN = $(NAME)_darwin_amd64
+DEVICE_AGENT = device-agent-v2
+DESKTOP_GATEWAY = desktop-gateway-v2
 
 # 颜色
 RED = \033[0;31m
@@ -33,13 +29,13 @@ all: build
 
 # 帮助信息
 help:
-	@echo "VSP Manager - 虚拟串口管理器 v$(VERSION)"
+	@echo "VSP V2 CLI clients v$(VERSION)"
 	@echo ""
 	@echo "用法:"
-	@echo "  make build          # 构建当前平台版本"
-	@echo "  make build-windows # 构建Windows版本"
-	@echo "  make build-linux   # 构建Linux版本"
-	@echo "  make build-darwin  # 构建macOS版本"
+	@echo "  make build          # 构建当前平台的 device-agent-v2 和 desktop-gateway-v2"
+	@echo "  make build-windows # 构建 Windows 版本"
+	@echo "  make build-linux   # 构建 Linux 版本"
+	@echo "  make build-darwin  # 构建 macOS 版本"
 	@echo "  make clean         # 清理构建产物"
 	@echo "  make test          # 运行测试"
 	@echo "  make deps          # 下载依赖"
@@ -53,38 +49,44 @@ deps:
 # 构建当前平台
 build:
 	@echo "构建 $(GOOS)/$(GOARCH) 版本..."
-	$(GO) build $(GOFLAGS) -o $(NAME) ./cmd
-	@echo "构建完成: $(NAME)"
+	$(GO) build $(GOFLAGS) -o $(DEVICE_AGENT) ./cmd/device-agent-v2
+	$(GO) build $(GOFLAGS) -o $(DESKTOP_GATEWAY) ./cmd/desktop-gateway-v2
+	@echo "构建完成: $(DEVICE_AGENT), $(DESKTOP_GATEWAY)"
 
 # 构建Windows版本
 build-windows:
 	@echo "构建 Windows 版本..."
-	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(WIN_EXE) ./cmd
-	@echo "构建完成: $(WIN_EXE)"
+	@mkdir -p $(DIST)
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(DIST)/$(DEVICE_AGENT)-windows-amd64.exe ./cmd/device-agent-v2
+	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(DIST)/$(DESKTOP_GATEWAY)-windows-amd64.exe ./cmd/desktop-gateway-v2
+	@echo "构建完成: $(DIST)"
 
 # 构建Linux版本
 build-linux:
 	@echo "构建 Linux 版本..."
-	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(LIN_BIN) ./cmd
-	@echo "构建完成: $(LIN_BIN)"
+	@mkdir -p $(DIST)
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(DIST)/$(DEVICE_AGENT)-linux-amd64 ./cmd/device-agent-v2
+	GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(DIST)/$(DESKTOP_GATEWAY)-linux-amd64 ./cmd/desktop-gateway-v2
+	@echo "构建完成: $(DIST)"
 
 # 构建macOS版本
 build-darwin:
 	@echo "构建 macOS 版本..."
-	GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(MAC_BIN) ./cmd
-	@echo "构建完成: $(MAC_BIN)"
+	@if [ "$$(uname -s)" != "Darwin" ]; then echo "macOS artifacts must be built on macOS because the serial dependency uses Darwin build tags."; exit 1; fi
+	@mkdir -p $(DIST)
+	GOOS=darwin GOARCH=$(GOARCH) CGO_ENABLED=1 $(GO) build $(GOFLAGS) -o $(DIST)/$(DEVICE_AGENT)-darwin-$(GOARCH) ./cmd/device-agent-v2
+	GOOS=darwin GOARCH=$(GOARCH) CGO_ENABLED=1 $(GO) build $(GOFLAGS) -o $(DIST)/$(DESKTOP_GATEWAY)-darwin-$(GOARCH) ./cmd/desktop-gateway-v2
+	@echo "构建完成: $(DIST)"
 
 # 构建所有平台
-build-all: build-windows build-linux build-darwin
+build-all: build-windows build-linux
 	@echo "所有平台构建完成!"
-	@echo "  - $(WIN_EXE)"
-	@echo "  - $(LIN_BIN)"
-	@echo "  - $(MAC_BIN)"
+	@echo "macOS artifacts are built by the GitHub Actions macOS runner or by running make build-darwin on macOS."
 
 # 清理
 clean:
 	@echo "清理构建产物..."
-	rm -f $(NAME) $(WIN_EXE) $(LIN_BIN) $(MAC_BIN)
+	rm -f $(DEVICE_AGENT) $(DESKTOP_GATEWAY)
 	rm -rf $(DIST)
 	@echo "清理完成"
 
@@ -95,13 +97,14 @@ test:
 
 # 运行
 run: build
-	@echo "运行程序..."
-	./$(NAME) -version
+	@echo "运行 device-agent-v2 --help..."
+	./$(DEVICE_AGENT) -h
 
 # 安装
 install: build
 	@echo "安装程序..."
-	cp $(NAME) /usr/local/bin/
+	cp $(DEVICE_AGENT) /usr/local/bin/
+	cp $(DESKTOP_GATEWAY) /usr/local/bin/
 	@echo "安装完成"
 
 # 代码格式检查

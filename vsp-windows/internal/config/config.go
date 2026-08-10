@@ -12,26 +12,28 @@ import (
 
 // Config represents application configuration
 type Config struct {
-	ServerURL  string `json:"server_url"`   // e.g., "http://192.168.1.100:9000"
-	ServerHost string `json:"server_host"`  // parsed host
-	ServerPort int    `json:"server_port"`  // parsed port
-	UseHTTPS   bool   `json:"use_https"`    // whether to use https
-	Username   string `json:"username"`
-	Password   string `json:"password"` // Stored for convenience, user should re-enter if security is important
-	DeviceKey  string `json:"device_key"`
-	PortName   string `json:"port_name"`
-	AutoStart  bool   `json:"auto_start"`
-	AutoConnect bool  `json:"auto_connect"`
+	ServerURL   string `json:"server_url"`  // e.g., "http://192.168.1.100:9000"
+	ServerHost  string `json:"server_host"` // parsed host
+	ServerPort  int    `json:"server_port"` // parsed port
+	UseHTTPS    bool   `json:"use_https"`   // whether to use https
+	Username    string `json:"username"`
+	Password    string `json:"password"` // Stored for convenience, user should re-enter if security is important
+	DeviceID    uint   `json:"device_id"`
+	MappingID   string `json:"mapping_id"`
+	ListenAddr  string `json:"listen_addr"`
+	AutoStart   bool   `json:"auto_start"`
+	AutoConnect bool   `json:"auto_connect"`
 }
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		ServerURL:  "http://localhost:9000",
-		ServerHost: "localhost",
-		ServerPort: 9000,
-		UseHTTPS:   false,
-		AutoStart:  false,
+		ServerURL:   "http://localhost:9000",
+		ServerHost:  "localhost",
+		ServerPort:  9000,
+		UseHTTPS:    false,
+		ListenAddr:  "127.0.0.1:7000",
+		AutoStart:   false,
 		AutoConnect: false,
 	}
 }

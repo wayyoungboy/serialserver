@@ -107,9 +107,15 @@ func NewDeviceHandler(deviceService *services.DeviceService) *DeviceHandler {
 
 // CreateDeviceRequest 创建设备请求
 type CreateDeviceRequest struct {
-	Name       string `json:"name" binding:"required"`
-	SerialPort string `json:"serial_port"`
-	BaudRate   int    `json:"baud_rate"`
+	Name string `json:"name" binding:"required"`
+}
+
+// UpdateDeviceRequest updates only cloud-side device metadata.
+type UpdateDeviceRequest struct {
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+	Location    *string `json:"location"`
+	Status      *string `json:"status"`
 }
 
 // ListDevices 列出设备
@@ -138,7 +144,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 		return
 	}
 
-	device, err := h.deviceService.CreateDevice(userID, tenantID, req.Name, req.SerialPort, req.BaudRate)
+	device, err := h.deviceService.CreateDevice(userID, tenantID, req.Name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -172,15 +178,31 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 		return
 	}
 
-	var req map[string]interface{}
+	var req UpdateDeviceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.deviceService.UpdateDevice(uint(id), req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		updates["name"] = *req.Name
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.Location != nil {
+		updates["location"] = *req.Location
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+
+	if len(updates) > 0 {
+		if err := h.deviceService.UpdateDevice(uint(id), updates); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "更新成功"})
@@ -200,116 +222,6 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "删除成功"})
-}
-
-// GetDeviceConfig 获取设备配置 (设备端通过 DeviceKey 获取)
-func (h *DeviceHandler) GetDeviceConfig(c *gin.Context) {
-	deviceKey := c.Query("device_key")
-	if deviceKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 device_key"})
-		return
-	}
-
-	device, err := h.deviceService.GetDeviceByKey(deviceKey)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "设备不存在"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"config": gin.H{
-			"serial_port": device.SerialPort,
-			"baud_rate":   device.BaudRate,
-			"data_bits":   device.DataBits,
-			"stop_bits":   device.StopBits,
-			"parity":      device.Parity,
-		},
-	})
-}
-
-// UpdateDeviceConfigByKey 通过 DeviceKey 更新设备配置
-func (h *DeviceHandler) UpdateDeviceConfigByKey(c *gin.Context) {
-	deviceKey := c.Param("key")
-	if deviceKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 device_key"})
-		return
-	}
-
-	device, err := h.deviceService.GetDeviceByKey(deviceKey)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "设备不存在"})
-		return
-	}
-
-	var req struct {
-		SerialPort string  `json:"serial_port"`
-		BaudRate   int     `json:"baud_rate"`
-		DataBits   int     `json:"data_bits"`
-		StopBits   float64 `json:"stop_bits"`
-		Parity     string  `json:"parity"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	stopBits := int(req.StopBits)
-	if req.StopBits == 1.5 {
-		stopBits = 15 // 特殊值表示 1.5
-	}
-
-	updates := map[string]interface{}{
-		"serial_port": req.SerialPort,
-		"baud_rate":   req.BaudRate,
-		"data_bits":   req.DataBits,
-		"stop_bits":   stopBits,
-		"parity":      req.Parity,
-	}
-
-	if err := h.deviceService.UpdateDevice(device.ID, updates); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "配置更新成功"})
-}
-
-// UpdateDeviceConfig 更新设备配置
-func (h *DeviceHandler) UpdateDeviceConfig(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
-		return
-	}
-
-	var req struct {
-		SerialPort string `json:"serial_port"`
-		BaudRate   int    `json:"baud_rate"`
-		DataBits   int    `json:"data_bits"`
-		StopBits   int    `json:"stop_bits"`
-		Parity     string `json:"parity"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	updates := map[string]interface{}{
-		"serial_port": req.SerialPort,
-		"baud_rate":   req.BaudRate,
-		"data_bits":   req.DataBits,
-		"stop_bits":   req.StopBits,
-		"parity":      req.Parity,
-	}
-
-	if err := h.deviceService.UpdateDevice(uint(id), updates); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "配置更新成功"})
 }
 
 // RegenerateKey 重新生成设备Key

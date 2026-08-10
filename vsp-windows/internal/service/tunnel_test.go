@@ -9,185 +9,158 @@ func TestTunnelStatusStruct(t *testing.T) {
 	now := time.Now()
 	status := TunnelStatus{
 		Connected:      true,
-		VisiblePort:    "COM5",
-		HiddenPort:     "CNCB0",
-		DeviceOnline:   true,
-		DeviceStatus:   "device_online",
+		LocalListening: true,
+		RelayConnected: true,
+		ListenAddress:  "127.0.0.1:7000",
+		DeviceID:       12,
+		MappingID:      "plc",
+		MappingName:    "PLC",
+		RemotePort:     "COM3",
+		SessionID:      "session-1",
 		BytesSent:      1024,
 		BytesReceived:  512,
 		ConnectedSince: now,
-		Error:          "",
 	}
 
 	if !status.Connected {
 		t.Error("Expected Connected to be true")
 	}
-
-	if status.VisiblePort != "COM5" {
-		t.Errorf("Expected VisiblePort 'COM5', got '%s'", status.VisiblePort)
+	if !status.LocalListening {
+		t.Error("Expected LocalListening to be true")
 	}
-
+	if status.ListenAddress != "127.0.0.1:7000" {
+		t.Errorf("Expected ListenAddress '127.0.0.1:7000', got '%s'", status.ListenAddress)
+	}
+	if status.MappingID != "plc" {
+		t.Errorf("Expected MappingID 'plc', got '%s'", status.MappingID)
+	}
 	if status.BytesSent != 1024 {
 		t.Errorf("Expected BytesSent 1024, got %d", status.BytesSent)
 	}
-
 	if status.BytesReceived != 512 {
 		t.Errorf("Expected BytesReceived 512, got %d", status.BytesReceived)
-	}
-
-	if status.DeviceStatus != "device_online" {
-		t.Errorf("Expected DeviceStatus 'device_online', got '%s'", status.DeviceStatus)
 	}
 }
 
 func TestTunnelStatusWithError(t *testing.T) {
 	status := TunnelStatus{
 		Connected: false,
-		Error:     "Connection timeout",
+		Error:     "mapping offline",
 	}
 
 	if status.Connected {
 		t.Error("Expected Connected to be false")
 	}
-
-	if status.Error != "Connection timeout" {
-		t.Errorf("Expected Error 'Connection timeout', got '%s'", status.Error)
+	if status.Error != "mapping offline" {
+		t.Errorf("Expected Error 'mapping offline', got '%s'", status.Error)
 	}
 }
 
 func TestNewTunnelService(t *testing.T) {
 	service := NewTunnelService()
-
 	if service == nil {
 		t.Fatal("NewTunnelService returned nil")
 	}
-
-	// Check initial state
 	if service.running {
 		t.Error("Expected running to be false initially")
 	}
-
-	if service.wsClient != nil {
-		t.Error("Expected wsClient to be nil initially")
-	}
-
-	if service.portClient == nil {
-		t.Error("Expected portClient to be initialized")
-	}
-
-	if service.com0com == nil {
-		t.Error("Expected com0com to be initialized")
-	}
-}
-
-func TestTunnelServiceIsConnected(t *testing.T) {
-	service := NewTunnelService()
-
-	// Initially not connected
 	if service.IsConnected() {
-		t.Error("Expected IsConnected to return false initially")
+		t.Error("Expected IsConnected to be false initially")
+	}
+	if service.IsListening() {
+		t.Error("Expected IsListening to be false initially")
 	}
 }
 
-func TestTunnelServiceGetStatus(t *testing.T) {
+func TestTunnelServiceRequiresV2Auth(t *testing.T) {
 	service := NewTunnelService()
+	err := service.Connect(TunnelConfig{
+		ServerURL:     "http://localhost:9000",
+		DeviceID:      1,
+		MappingID:     "plc",
+		ListenAddress: "127.0.0.1:0",
+	})
+	if err == nil {
+		t.Fatal("Expected missing user token to fail")
+	}
+}
+
+func TestTunnelServiceListenAndDisconnect(t *testing.T) {
+	service := NewTunnelService()
+	err := service.Connect(TunnelConfig{
+		ServerURL:     "http://localhost:9000",
+		UserToken:     "token",
+		DeviceID:      1,
+		MappingID:     "plc",
+		ListenAddress: "127.0.0.1:0",
+	})
+	if err != nil {
+		t.Fatalf("Connect failed: %v", err)
+	}
 
 	status := service.GetStatus()
-
-	// Should return status with initial values
-	if status.Connected {
-		t.Error("Expected status.Connected to be false")
+	if !status.LocalListening {
+		t.Error("Expected LocalListening to be true")
+	}
+	if status.MappingID != "plc" {
+		t.Errorf("Expected MappingID 'plc', got '%s'", status.MappingID)
 	}
 
-	if status.VisiblePort != "" {
-		t.Errorf("Expected empty VisiblePort, got '%s'", status.VisiblePort)
+	if err := service.Disconnect(); err != nil {
+		t.Fatalf("Disconnect failed: %v", err)
 	}
-
-	if status.BytesSent != 0 {
-		t.Errorf("Expected BytesSent 0, got %d", status.BytesSent)
-	}
-}
-
-func TestTunnelServiceGetVisiblePort(t *testing.T) {
-	service := NewTunnelService()
-
-	// Initially no port
-	port := service.GetVisiblePort()
-	if port != "" {
-		t.Errorf("Expected empty visible port initially, got '%s'", port)
+	if service.IsListening() {
+		t.Error("Expected IsListening to be false after disconnect")
 	}
 }
 
 func TestCallbackRegistration(t *testing.T) {
 	service := NewTunnelService()
-
-	// Test OnStatusChange callback
 	service.OnStatusChange(func(status TunnelStatus) {})
 	if service.onStatusChange == nil {
 		t.Error("OnStatusChange callback not registered")
 	}
 
-	// Test OnDataTransfer callback
 	service.OnDataTransfer(func(direction string, bytes int) {})
 	if service.onDataTransfer == nil {
 		t.Error("OnDataTransfer callback not registered")
 	}
 }
 
-func TestNotifyStatusChange(t *testing.T) {
-	service := NewTunnelService()
+func TestBuildRelayURL(t *testing.T) {
+	tests := []struct {
+		name   string
+		server string
+		want   string
+	}{
+		{name: "http", server: "http://localhost:9000", want: "ws://localhost:9000/api/v2/relay/gateway"},
+		{name: "https", server: "https://relay.example.com", want: "wss://relay.example.com/api/v2/relay/gateway"},
+		{name: "host only", server: "localhost:9000", want: "ws://localhost:9000/api/v2/relay/gateway"},
+	}
 
-	// Register callback
-	service.OnStatusChange(func(status TunnelStatus) {
-		// Callback received
-	})
-
-	// Call notify - verifies mechanism exists
-	service.notifyStatusChange()
-}
-
-func TestCheckCom0ComInstalled(t *testing.T) {
-	service := NewTunnelService()
-
-	// This will return false if com0com not installed
-	// We just verify the function doesn't panic
-	installed := service.CheckCom0ComInstalled()
-	// No assertion on result since it depends on system state
-	t.Logf("com0com installed: %v", installed)
-}
-
-func TestTunnelServiceStopForwarding(t *testing.T) {
-	service := NewTunnelService()
-
-	// Stop when not running should not error
-	service.StopForwarding()
-
-	if service.running {
-		t.Error("Expected running to be false after StopForwarding")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildRelayURL(tt.server, "/api/v2/relay/gateway")
+			if err != nil {
+				t.Fatalf("buildRelayURL failed: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Expected %q, got %q", tt.want, got)
+			}
+		})
 	}
 }
 
 func TestTunnelStatusTimeFormat(t *testing.T) {
 	now := time.Now()
-	status := TunnelStatus{
-		ConnectedSince: now,
-	}
-
-	// Verify time can be formatted
-	formatted := status.ConnectedSince.Format("2006-01-02 15:04:05")
-	if formatted == "" {
+	status := TunnelStatus{ConnectedSince: now}
+	if status.ConnectedSince.Format("2006-01-02 15:04:05") == "" {
 		t.Error("Expected non-empty formatted time")
 	}
-
-	t.Logf("Formatted time: %s", formatted)
 }
 
 func TestTunnelStatusZeroTime(t *testing.T) {
-	status := TunnelStatus{
-		ConnectedSince: time.Time{}, // Zero time
-	}
-
-	// Check if zero time
+	status := TunnelStatus{ConnectedSince: time.Time{}}
 	if !status.ConnectedSince.IsZero() {
 		t.Error("Expected ConnectedSince to be zero")
 	}

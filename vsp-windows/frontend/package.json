@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/ensure-dist-keep.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

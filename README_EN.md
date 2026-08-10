@@ -6,84 +6,39 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 
-VSP (Virtual Serial Port) is a commercial cloud platform for remote serial port access. It enables PLC remote debugging, IoT device management, and industrial automation through bidirectional serial-to-TCP tunneling.
+VSP (Virtual Serial Port) is a remote serial gateway for PLC debugging, IoT device management, and industrial automation. The main branch is now V2-only: field devices configure their own serial settings, while the cloud server only authenticates, authorizes, pairs relay sessions, forwards binary frames, and records audit logs.
 
-## System Architecture
+## Documentation
+
+| Document | Audience | Contents |
+|----------|----------|----------|
+| [User Manual](docs/user-manual-en.md) | Administrators, field operators, desktop users | Device creation, field agent setup, Windows GUI, CLI gateway, and troubleshooting |
+| [V2 Relay Protocol](docs/v2-relay.md) | Developers and integrators | WebSocket hello messages, mapping state, and binary forwarding rules |
+| [Windows Release Checklist](docs/windows-release-checklist.md) | Release owners and testers | Icons, Wails build, NSIS installer, install/start/uninstall validation |
+| [Test Notes](tests/README.md) | Developers and CI maintainers | Unit tests and Linux pseudo-terminal serial relay E2E |
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           VSP Cloud Platform                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────┐                    ┌─────────────────────────────────────┐
-│    Device Side   │                    │           Cloud Server              │
-│  (Factory Site)  │                    │         (vsp-server)                │
-├─────────────────┤                    ├─────────────────────────────────────┤
-│  [Serial Device] │                    │  ┌─────────────────────────────┐    │
-│  PLC/Sensors    │                    │  │   Web Management Console    │    │
-│       │         │                    │  │   Device/User Management    │    │
-│       ▼         │                    │  └─────────────────────────────┘    │
-│  device-client │◄──── WebSocket ─────│                                      │
-│  (Go Client)    │     Port 9000       │  ┌─────────────────────────────┐    │
-│  DeviceKey Auth │                    │  │   REST API / WebSocket      │    │
-│                 │                    │  └─────────────────────────────┘    │
-└─────────────────┘                    └──────────────────┬──────────────────┘
-                                                          │
-                                                          │ WebSocket
-                                                          │
-                                       ┌──────────────────▼──────────────────┐
-                                       │           Windows Client             │
-                                       │         (vsp-windows)               │
-                                       ├─────────────────────────────────────┤
-                                       │  [Debug Software]                   │
-                                       │  Serial Tools / SCADA / PLC IDE     │
-                                       │       │                             │
-                                       │       ▼                             │
-                                       │  VSPManager (Go+Wails)              │
-                                       │  + com0com Virtual Serial Driver    │
-                                       │  Virtual COM Port                   │
-                                       └─────────────────────────────────────┘
+[Serial device] <-> [device-agent-v2] <-> [vsp-server V2 relay] <-> [VSPManager / desktop-gateway-v2] <-> [127.0.0.1:PORT] <-> [debug tool]
 ```
+
+The first V2 release exposes a local TCP endpoint such as `127.0.0.1:7000`. Virtual COM support is reserved for a later gateway adapter.
 
 ## Components
 
 | Component | Language | Location | Purpose |
 |-----------|----------|----------|---------|
-| **vsp-server** | Go | `vsp-server/` | Cloud server with REST API, WebSocket relay, multi-tenant management |
-| **vsp-client** | Go | `vsp-client/` | Device-side client (reads physical serial port, uploads to server) |
-| **vsp-windows** | Go + Wails | `vsp-windows/` | Windows GUI client with com0com virtual serial port support |
-| **com0com** | C++ | `com0com/` | Open-source virtual serial port driver |
-
-## Features
-
-### vsp-server (Cloud Server)
-
-- **User Management**: Registration, login, JWT authentication
-- **Device Management**: Add devices, generate DeviceKey, device status monitoring
-- **Multi-tenancy**: Tenant isolation, quota management
-- **WebSocket**: Real-time bidirectional data relay
-- **REST API**: Complete API interface
-- **Web Console**: Dashboard, device management
-
-### vsp-client (Device Side)
-
-- Physical serial port reading
-- Active connection to cloud server
-- DeviceKey authentication
-- Fetch serial port configuration from server
-- Auto-reconnect on disconnect
-
-### vsp-windows (Windows GUI)
-
-- Modern GUI built with Wails + Vue.js
-- Automatic virtual COM port creation
-- Bidirectional data forwarding
-- Connection status monitoring
-- HTTP/HTTPS support
+| **vsp-server** | Go | `vsp-server/` | V2 control plane, device identity, user auth, relay pairing, binary forwarding, and audit logs |
+| **device-agent-v2** | Go | `vsp-client/cmd/device-agent-v2/` | Runs at the field site, opens the physical serial port, and connects to `/api/v2/relay/device` with DeviceKey |
+| **desktop-gateway-v2** | Go | `vsp-client/cmd/desktop-gateway-v2/` | Creates a local TCP endpoint and connects to `/api/v2/relay/gateway` with a user JWT |
+| **vsp-windows** | Go + Wails | `vsp-windows/` | Windows GUI for login, device mapping selection, local TCP gateway control, and bilingual UI |
 
 ## Quick Start
 
-### 1. Start Cloud Server
+See the [User Manual](docs/user-manual-en.md) for full step-by-step usage. The minimum flow is:
+
+### 1. Start the Server
 
 ```bash
 cd vsp-server
@@ -91,158 +46,138 @@ go build -o vsp-server ./cmd
 ./vsp-server
 ```
 
-After server starts:
-- Web Console: `http://localhost:9000`
-- REST API: `http://localhost:9000/api/v1`
-- Default Admin: `admin` / `admin123`
+After startup:
 
-### 2. Create Device
+- Web console: `http://localhost:9000`
+- REST API: `http://localhost:9000/api/v2`
+- Default admin: `admin` / `admin123`
 
-Create a device through Web Console or API to get DeviceKey.
+### 2. Create a Device
 
-### 3. Start Device Client
+Create a device from the web console or API. The generated DeviceKey is only for the field-side `device-agent-v2`.
+
+### 3. Start the Field Agent
 
 ```bash
 cd vsp-client
-go build -o device-client ./cmd/device-client
-./device-client -server your-server:9000 -key <device_key>
+go build -o device-agent-v2 ./cmd/device-agent-v2
+./device-agent-v2 \
+  -server localhost:9000 \
+  -key <device_key> \
+  -mapping plc \
+  -name "PLC" \
+  -port COM3 \
+  -baud 9600
 ```
 
-### 4. Start Windows Client
+Serial settings are local to the field agent and are announced in the V2 hello message.
 
-Double-click `VSPManager.exe`, enter server address, login and select device to connect.
+### 4. Start the Desktop Gateway
 
-## Build
-
-### Local Build
+Use VSPManager, or run the CLI gateway after logging in and obtaining a user JWT:
 
 ```bash
-# Build all components
-make all
-
-# Build individually
-make build-server     # Server
-make build-client     # Device client (cross-platform)
-make build-windows    # Windows GUI client
-
-# Package for release
-make package
+cd vsp-client
+go build -o desktop-gateway-v2 ./cmd/desktop-gateway-v2
+./desktop-gateway-v2 \
+  -server localhost:9000 \
+  -token <user_jwt> \
+  -device-id 1 \
+  -mapping plc \
+  -listen 127.0.0.1:7000
 ```
 
-### Windows GUI Build (Requires Wails)
+Desktop access requires a user login token and a device ID. DeviceKey is not accepted as a remote-access password.
 
-```powershell
-cd vsp-windows
-wails build -clean
-```
+Then point your desktop tool at `127.0.0.1:7000`.
 
-## API Documentation
+## API
 
 ### Authentication
 
-```
-POST /api/v1/auth/register   # User registration
-POST /api/v1/auth/login      # User login (returns JWT Token)
+```text
+POST /api/v2/auth/register
+POST /api/v2/auth/login
 ```
 
 ### Devices
 
-```
-GET    /api/v1/devices           # Device list
-POST   /api/v1/devices           # Create device
-DELETE /api/v1/devices/:id       # Delete device
-GET    /api/v1/devices/config?device_key=xxx  # Get config (device client uses)
+```text
+GET    /api/v2/devices
+POST   /api/v2/devices
+GET    /api/v2/devices/:id
+PUT    /api/v2/devices/:id
+DELETE /api/v2/devices/:id
+POST   /api/v2/devices/:id/regenerate-key
+GET    /api/v2/devices/:id/mappings
 ```
 
-### WebSocket
+Device REST APIs manage cloud-side identity and metadata only. Serial parameters are not stored as server-controlled device configuration.
 
+### Relay
+
+```text
+WS /api/v2/relay/device
+WS /api/v2/relay/gateway
 ```
-WS /api/v1/ws/device   # Device side connection
-WS /api/v1/ws/client   # Windows client connection
+
+See [docs/v2-relay.md](docs/v2-relay.md) for the V2 hello messages, mapping metadata, and binary frame behavior.
+
+## Build
+
+```bash
+make build-server
+make build-client
+make build-windows
 ```
+
+Generate the Windows app icon assets and build a standard per-user NSIS installer:
+
+```powershell
+cd vsp-windows
+go run tools/gen_windows_assets.go
+wails build -clean
+makensis /DAPP_VERSION=0.2.0 packaging/windows/VSPManager.nsi
+```
+
+The installer is written to `vsp-windows/build/installer/` and creates Start Menu, desktop shortcut, and uninstall entries.
+
+Use [docs/windows-release-checklist.md](docs/windows-release-checklist.md) before release to verify icons, Wails build output, the NSIS installer, install/start behavior, and uninstall cleanup.
+
+Validation commands:
+
+```bash
+cd vsp-server && go test ./...
+cd vsp-client && go test ./...
+cd vsp-windows && go test ./...
+cd vsp-windows/frontend && npm run build
+cd tests/e2e && go test ./...
+```
+
+`tests/e2e` runs on Linux and uses a pseudo-terminal to simulate a serial device. It starts a real `vsp-server`, `device-agent-v2`, and `desktop-gateway-v2`, then verifies TCP-to-serial and serial-to-TCP byte forwarding.
 
 ## Project Structure
 
-```
+```text
 serialserver/
-├── .github/workflows/      # GitHub Actions CI/CD
-├── vsp-server/             # Cloud server
-│   ├── cmd/main.go
-│   ├── internal/
-│   └── configs/
-├── vsp-client/             # Device client
-│   ├── cmd/device-client/
-│   └── internal/
-├── vsp-windows/            # Windows GUI client
-│   ├── main.go
-│   ├── app.go
-│   ├── frontend/           # Vue.js frontend
-│   ├── internal/
-│   └── wails.json
-├── com0com/                # Virtual serial port driver
-├── tests/                  # Test scripts
+├── vsp-server/             # Cloud server and V2 relay
+├── vsp-client/             # device-agent-v2 and desktop-gateway-v2
+├── vsp-windows/            # Windows GUI gateway
+├── docs/user-manual.md     # Chinese user manual
+├── docs/user-manual-en.md  # English user manual
+├── docs/v2-relay.md        # V2 relay protocol
+├── docs/windows-release-checklist.md
+├── tests/                  # Test helpers and Linux PTY E2E
 ├── Makefile
 └── README.md
 ```
 
-## Data Flow
-
-```
-[Physical Device] ↔ [device-client] ↔ [WebSocket] ↔ [vsp-server] ↔ [WebSocket] ↔ [VSPManager] ↔ [Virtual COM] ↔ [Debug Software]
-```
-
 ## Requirements
 
-- **Go 1.25+**
-- **Node.js 20+** (for Windows GUI build)
-- **Wails CLI** (for Windows GUI build)
-- **com0com** (Windows virtual serial port driver)
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Whether it's reporting bugs, suggesting features, improving documentation, or submitting code - we appreciate all contributions.
-
-### Ways to Contribute
-
-- **Report Issues**: [Submit an Issue](https://github.com/wayyoungboy/serialserver/issues) to describe bugs or feature suggestions
-- **Submit Code**: Fork → Modify → Submit Pull Request
-- **Improve Documentation**: Help improve README, API docs, or add usage examples
-- **Share Experience**: Share your use cases and best practices with the community
-
-### Development Guide
-
-```bash
-# Clone the project
-git clone https://github.com/wayyoungboy/serialserver.git
-cd serialserver
-
-# Install dependencies
-go mod download
-
-# Run tests
-make test
-
-# Start development server
-make dev-server
-```
-
-### Code Standards
-
-- Follow Go official code conventions
-- Run `go fmt` before committing
-- Add test cases for new features
-- Use Conventional Commits format for commit messages
-
-## 📞 Contact
-
-- **Issues**: [GitHub Issues](https://github.com/wayyoungboy/serialserver/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/wayyoungboy/serialserver/discussions)
-
-## ⭐ Star History
-
-If this project helps you, please consider giving it a Star ⭐!
-
-[![Star History Chart](https://api.star-history.com/svg?repos=wayyoungboy/serialserver&type=Date)](https://star-history.com/#wayyoungboy/serialserver&Date)
+- Go 1.25+
+- Node.js 20+ for the Windows GUI frontend
+- Wails CLI for building the Windows GUI
+- NSIS for building the Windows installer
 
 ## License
 

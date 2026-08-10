@@ -11,7 +11,7 @@ func TestAPIClientCreation(t *testing.T) {
 		t.Fatal("NewAPIClient returned nil")
 	}
 
-	expectedBaseURL := "http://localhost:9000/api/v1"
+	expectedBaseURL := "http://localhost:9000/api/v2"
 	if client.baseURL != expectedBaseURL {
 		t.Errorf("Expected baseURL '%s', got '%s'", expectedBaseURL, client.baseURL)
 	}
@@ -84,15 +84,9 @@ func TestLoginRequestFormat(t *testing.T) {
 
 func TestDeviceStruct(t *testing.T) {
 	device := Device{
-		ID:         1,
-		Name:       "Test Device",
-		DeviceKey:  "key-123",
-		SerialPort: "COM1",
-		BaudRate:   115200,
-		DataBits:   8,
-		StopBits:   1,
-		Parity:     "N",
-		Status:     "online",
+		ID:     1,
+		Name:   "Test Device",
+		Status: "online",
 	}
 
 	if device.ID != 1 {
@@ -103,12 +97,33 @@ func TestDeviceStruct(t *testing.T) {
 		t.Errorf("Expected Name 'Test Device', got '%s'", device.Name)
 	}
 
-	if device.DeviceKey != "key-123" {
-		t.Errorf("Expected DeviceKey 'key-123', got '%s'", device.DeviceKey)
+}
+
+func TestMappingStateStruct(t *testing.T) {
+	mapping := MappingState{
+		Mapping: Mapping{
+			ID:   "plc",
+			Name: "PLC",
+			Serial: SerialSettings{
+				Port:     "COM3",
+				BaudRate: 9600,
+				DataBits: 8,
+				StopBits: 1,
+				Parity:   "N",
+			},
+		},
+		Online: true,
+		Busy:   false,
 	}
 
-	if device.BaudRate != 115200 {
-		t.Errorf("Expected BaudRate 115200, got %d", device.BaudRate)
+	if mapping.Mapping.ID != "plc" {
+		t.Errorf("Expected mapping id 'plc', got '%s'", mapping.Mapping.ID)
+	}
+	if mapping.Mapping.Serial.Port != "COM3" {
+		t.Errorf("Expected serial port 'COM3', got '%s'", mapping.Mapping.Serial.Port)
+	}
+	if !mapping.Online {
+		t.Error("Expected mapping to be online")
 	}
 }
 

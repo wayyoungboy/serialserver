@@ -3,9 +3,7 @@
 import {main} from '../models';
 import {network} from '../models';
 
-export function CheckCom0ComInstalled():Promise<boolean>;
-
-export function Connect(arg1:string):Promise<void>;
+export function Connect(arg1:number,arg2:string,arg3:string):Promise<void>;
 
 export function Disconnect():Promise<void>;
 
@@ -16,6 +14,8 @@ export function GetCurrentUsername():Promise<string>;
 export function GetDevices():Promise<Array<network.Device>>;
 
 export function GetLogPath():Promise<string>;
+
+export function GetMappings(arg1:number):Promise<Array<network.MappingState>>;
 
 export function GetStatus():Promise<main.ConnectionStatus>;
 

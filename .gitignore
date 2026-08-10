@@ -7,6 +7,7 @@
 
 # Build directories
 build/
+!vsp-windows/build/
 dist/
 out/
 bin/
@@ -50,8 +51,14 @@ tmp/
 temp/
 
 # Wails
-vsp-windows/build/
+vsp-windows/build/*
+!vsp-windows/build/appicon.png
+!vsp-windows/build/windows/
+!vsp-windows/build/windows/icon.ico
 vsp-windows/frontend/dist/
+!vsp-windows/frontend/dist/
+vsp-windows/frontend/dist/*
+!vsp-windows/frontend/dist/.gitkeep
 vsp-windows/frontend/node_modules/
 
 # Test output
@@ -71,9 +78,10 @@ vsp-server/configs/config.local.yaml
 # Compiled binaries (build in CI)
 vsp-server/vsp-server.exe
 vsp-server/vsp-server
-vsp-client/device-client.exe
-vsp-client/device-client
-vsp-client/vsp-manager.exe
+vsp-client/device-agent-v2.exe
+vsp-client/device-agent-v2
+vsp-client/desktop-gateway-v2.exe
+vsp-client/desktop-gateway-v2
 vsp-windows/build/bin/
 
 # Archives
@@ -86,6 +94,7 @@ vsp-windows/test_com0com/
 *.md
 !README.md
 !README_EN.md
+!docs/**/*.md
 !tests/**/*.md
 !vsp-server/README.md
 !vsp-client/README.md

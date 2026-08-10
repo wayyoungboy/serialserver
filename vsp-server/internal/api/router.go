@@ -3,8 +3,8 @@ package api
 import (
 	"vsp-server/internal/api/handlers"
 	"vsp-server/internal/api/middleware"
+	"vsp-server/internal/relayv2"
 	"vsp-server/internal/services"
-	"vsp-server/internal/websocket"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +17,7 @@ type Router struct {
 	statsHandler  *handlers.StatsHandler
 	logHandler    *handlers.LogHandler
 	authService   *services.AuthService
-	wsHub         *websocket.Hub
+	relayHub      *relayv2.Hub
 }
 
 // NewRouter 创建路由
@@ -29,7 +29,7 @@ func NewRouter(engine *gin.Engine, authService *services.AuthService, deviceServ
 		statsHandler:  handlers.NewStatsHandler(statsService),
 		logHandler:    handlers.NewLogHandler(logService),
 		authService:   authService,
-		wsHub:         websocket.NewHub(logService),
+		relayHub:      relayv2.NewHub(deviceService, authService, logService),
 	}
 }
 
@@ -44,7 +44,7 @@ func (r *Router) Setup() {
 	r.engine.StaticFile("/", "./web/dist/index.html")
 
 	// API路由组
-	api := r.engine.Group("/api/v1")
+	api := r.engine.Group("/api/v2")
 	{
 		// 认证路由（无需认证）
 		auth := api.Group("/auth")
@@ -68,13 +68,9 @@ func (r *Router) Setup() {
 				devices.GET("/:id", r.deviceHandler.GetDevice)
 				devices.PUT("/:id", r.deviceHandler.UpdateDevice)
 				devices.DELETE("/:id", r.deviceHandler.DeleteDevice)
-				devices.PUT("/:id/config", r.deviceHandler.UpdateDeviceConfig)
 				devices.POST("/:id/regenerate-key", r.deviceHandler.RegenerateKey)
+				devices.GET("/:id/mappings", r.relayHub.ListMappings)
 			}
-
-			// 设备配置 (设备端通过 DeviceKey 获取，无需登录)
-			api.GET("/devices/config", r.deviceHandler.GetDeviceConfig)
-			api.PUT("/devices/by-key/:key/config", r.deviceHandler.UpdateDeviceConfigByKey)
 
 			// 统计信息
 			protected.GET("/stats", r.statsHandler.GetStats)
@@ -83,8 +79,8 @@ func (r *Router) Setup() {
 			protected.GET("/logs", r.logHandler.GetLogs)
 		}
 
-		// WebSocket路由
-		api.GET("/ws/device", r.wsHub.HandleDevice)
-		api.GET("/ws/client", r.wsHub.HandleClient)
+		// V2 relay API: device-side serial settings, cloud-side pairing and binary forwarding.
+		api.GET("/relay/device", r.relayHub.HandleDevice)
+		api.GET("/relay/gateway", r.relayHub.HandleGateway)
 	}
 }

@@ -58,7 +58,7 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	log.Printf("=== VSP Server v%s ===", Version)
 	log.Printf("服务启动: http://%s", addr)
-	log.Printf("API文档: http://%s/api/v1", addr)
+	log.Printf("API文档: http://%s/api/v2", addr)
 	log.Printf("默认管理员: admin / admin123")
 
 	// 优雅关闭

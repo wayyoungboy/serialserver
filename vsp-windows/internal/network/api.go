@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
 // APIClient represents a REST API client for VSP server
 type APIClient struct {
 	baseURL    string
+	originURL  string
 	token      string
 	httpClient *http.Client
 }
@@ -20,16 +23,35 @@ type APIClient struct {
 type Device struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
-	DeviceKey   string `json:"device_key"`
-	SerialPort  string `json:"serial_port"`
+	Description string `json:"description"`
+	Location    string `json:"location"`
+	Status      string `json:"status"`
+	LastOnline  string `json:"last_online"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// MappingState represents a V2 serial mapping currently announced by a device.
+type MappingState struct {
+	Mapping Mapping `json:"mapping"`
+	Online  bool    `json:"online"`
+	Busy    bool    `json:"busy"`
+}
+
+// Mapping describes a device-side serial mapping.
+type Mapping struct {
+	ID     string         `json:"id"`
+	Name   string         `json:"name,omitempty"`
+	Serial SerialSettings `json:"serial"`
+}
+
+// SerialSettings are announced by the device agent; the server only relays them.
+type SerialSettings struct {
+	Port        string `json:"port"`
 	BaudRate    int    `json:"baud_rate"`
 	DataBits    int    `json:"data_bits"`
 	StopBits    int    `json:"stop_bits"`
 	Parity      string `json:"parity"`
-	Status      string `json:"status"`
-	LastOnline  string `json:"last_online"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	FlowControl string `json:"flow_control,omitempty"`
 }
 
 // User represents a user from the API
@@ -54,12 +76,37 @@ type APIResponse struct {
 
 // NewAPIClient creates a new API client
 func NewAPIClient(host string, port int) *APIClient {
+	return NewAPIClientFromURL(fmt.Sprintf("http://%s:%d", host, port))
+}
+
+// NewAPIClientFromURL creates a client from an http(s) server URL.
+func NewAPIClientFromURL(serverURL string) *APIClient {
+	origin := normalizeOrigin(serverURL)
 	return &APIClient{
-		baseURL: fmt.Sprintf("http://%s:%d/api/v1", host, port),
+		baseURL:   fmt.Sprintf("%s/api/v2", origin),
+		originURL: origin,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// RelayWebSocketURL builds a V2 relay WebSocket URL.
+func (c *APIClient) RelayWebSocketURL(path string) string {
+	u, err := url.Parse(c.originURL)
+	if err != nil {
+		return ""
+	}
+	switch u.Scheme {
+	case "https":
+		u.Scheme = "wss"
+	default:
+		u.Scheme = "ws"
+	}
+	u.Path = strings.TrimRight(u.Path, "/") + path
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String()
 }
 
 // SetToken sets the authentication token
@@ -175,6 +222,55 @@ func (c *APIClient) GetDeviceList() ([]Device, error) {
 	return devices, nil
 }
 
+// GetDeviceMappings retrieves online V2 mappings announced by a device agent.
+func (c *APIClient) GetDeviceMappings(deviceID uint) ([]MappingState, error) {
+	if c.token == "" {
+		return nil, fmt.Errorf("not authenticated")
+	}
+
+	reqURL := fmt.Sprintf("%s/devices/%d/mappings", c.baseURL, deviceID)
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request error: %w", err)
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read error: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var apiResp APIResponse
+		if err := json.Unmarshal(body, &apiResp); err == nil && apiResp.Error != "" {
+			return nil, fmt.Errorf("get mappings failed: %s", apiResp.Error)
+		}
+		return nil, fmt.Errorf("get mappings failed: status %d", resp.StatusCode)
+	}
+
+	var apiResp APIResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("parse error: %w", err)
+	}
+
+	dataBytes, err := json.Marshal(apiResp.Data)
+	if err != nil {
+		return nil, fmt.Errorf("marshal data error: %w", err)
+	}
+
+	var mappings []MappingState
+	if err := json.Unmarshal(dataBytes, &mappings); err != nil {
+		return nil, fmt.Errorf("parse mappings error: %w", err)
+	}
+	return mappings, nil
+}
+
 // IsAuthenticated returns whether the client has a token
 func (c *APIClient) IsAuthenticated() bool {
 	return c.token != ""
@@ -188,4 +284,22 @@ func (c *APIClient) ClearToken() {
 // GetToken returns the current authentication token
 func (c *APIClient) GetToken() string {
 	return c.token
+}
+
+func normalizeOrigin(serverURL string) string {
+	serverURL = strings.TrimSpace(serverURL)
+	if serverURL == "" {
+		serverURL = "http://localhost:9000"
+	}
+	if !strings.Contains(serverURL, "://") {
+		serverURL = "http://" + serverURL
+	}
+	u, err := url.Parse(serverURL)
+	if err != nil || u.Host == "" {
+		return "http://localhost:9000"
+	}
+	u.Path = strings.TrimRight(u.Path, "/")
+	u.RawQuery = ""
+	u.Fragment = ""
+	return strings.TrimRight(u.String(), "/")
 }
