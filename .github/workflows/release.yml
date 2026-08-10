@@ -226,13 +226,13 @@ jobs:
           }
 
           # 检查 VSPManager
-          if (Test-Path "artifacts/vspmanager/VSPManager-windows-amd64.zip") {
+          if (Get-ChildItem "artifacts/vspmanager" -Recurse -Filter "VSPManager-windows-amd64.zip" -ErrorAction SilentlyContinue) {
             Write-Host "VSPManager 构建成功"
           } else {
             Write-Error "VSPManager 构建失败"
             exit 1
           }
-          if (Get-ChildItem "artifacts/vspmanager" -Filter "VSPManager-*-Setup.exe" -ErrorAction SilentlyContinue) {
+          if (Get-ChildItem "artifacts/vspmanager" -Recurse -Filter "VSPManager-*-Setup.exe" -ErrorAction SilentlyContinue) {
             Write-Host "VSPManager 安装器构建成功"
           } else {
             Write-Error "VSPManager 安装器构建失败"
