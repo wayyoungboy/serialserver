@@ -3,6 +3,7 @@ package relayv2
 import (
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -76,11 +77,18 @@ func TestHubPairsDeviceAndGatewayWithBinaryFrames(t *testing.T) {
 func newRelayTestServer(t *testing.T) (*httptest.Server, *models.Device, string) {
 	t.Helper()
 
-	if err := database.Init(filepath.Join(t.TempDir(), "relay-v2-test.db")); err != nil {
+	dbDir, err := os.MkdirTemp("", "relay-v2-test-*")
+	if err != nil {
+		t.Fatalf("create temp database dir: %v", err)
+	}
+
+	if err := database.Init(filepath.Join(dbDir, "relay-v2-test.db")); err != nil {
+		_ = os.RemoveAll(dbDir)
 		t.Fatalf("init database: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = database.Close()
+		_ = os.RemoveAll(dbDir)
 	})
 	if err := database.CreateDefaultData(); err != nil {
 		t.Fatalf("create default data: %v", err)
