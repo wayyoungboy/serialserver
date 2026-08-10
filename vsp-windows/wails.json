@@ -13,8 +13,8 @@
   "info": {
     "companyName": "VSP Team",
     "productName": "VSP Manager",
-    "productVersion": "0.2.0",
+    "productVersion": "0.0.3",
     "copyright": "Copyright © 2026",
-    "comments": "V2 remote serial gateway with local TCP endpoint"
+    "comments": "Remote serial gateway with local TCP endpoint"
   }
 }

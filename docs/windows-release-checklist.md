@@ -1,6 +1,6 @@
 # Windows 发版检查清单
 
-本清单用于 VSPManager V2 Windows 正式安装包发版前验收。当前 V2 主线提供本地 TCP 网关，不依赖 com0com。
+本清单用于 VSPManager Windows 正式安装包发版前验收。当前主线提供本地 TCP 网关，不依赖 com0com。
 
 ## 1. 图标和应用元数据
 
@@ -28,7 +28,7 @@ wails build -clean
 
 ```powershell
 cd vsp-windows
-makensis /DAPP_VERSION=0.2.0 packaging/windows/VSPManager.nsi
+makensis /DAPP_VERSION=0.0.3 packaging/windows/VSPManager.nsi
 ```
 
 验收:

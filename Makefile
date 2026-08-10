@@ -22,17 +22,17 @@ build-server:
 	@cd vsp-server && CGO_ENABLED=1 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o ../$(BUILD_DIR)/vsp-server ./cmd
 
 build-client:
-	@echo "$(GREEN)Building V2 CLI clients for multiple platforms...$(RESET)"
+	@echo "$(GREEN)Building CLI clients for multiple platforms...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
 	@# Linux amd64
-	@cd vsp-client && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/device-agent-v2-linux-amd64 ./cmd/device-agent-v2
-	@cd vsp-client && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/desktop-gateway-v2-linux-amd64 ./cmd/desktop-gateway-v2
+	@cd vsp-client && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/device-agent-linux-amd64 ./cmd/device-agent
+	@cd vsp-client && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/desktop-gateway-linux-amd64 ./cmd/desktop-gateway
 	@# Linux arm64
-	@cd vsp-client && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/device-agent-v2-linux-arm64 ./cmd/device-agent-v2
-	@cd vsp-client && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/desktop-gateway-v2-linux-arm64 ./cmd/desktop-gateway-v2
+	@cd vsp-client && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/device-agent-linux-arm64 ./cmd/device-agent
+	@cd vsp-client && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/desktop-gateway-linux-arm64 ./cmd/desktop-gateway
 	@# Windows amd64
-	@cd vsp-client && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/device-agent-v2-windows-amd64.exe ./cmd/device-agent-v2
-	@cd vsp-client && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/desktop-gateway-v2-windows-amd64.exe ./cmd/desktop-gateway-v2
+	@cd vsp-client && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/device-agent-windows-amd64.exe ./cmd/device-agent
+	@cd vsp-client && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../$(BUILD_DIR)/desktop-gateway-windows-amd64.exe ./cmd/desktop-gateway
 	@echo "$(YELLOW)macOS CLI artifacts are built by the GitHub Actions macOS runner because the serial dependency needs Darwin build tags.$(RESET)"
 
 build-assets:
@@ -62,13 +62,13 @@ package: build-server build-client build-installer
 	@cp $(BUILD_DIR)/VSPManager-*-Setup.exe $(BUILD_DIR)/packages/
 	@# Linux 服务端
 	@cd $(BUILD_DIR) && gzip -k vsp-server -c > packages/vsp-server-$(VERSION)-linux-amd64.gz
-	@# V2 CLI clients
-	@cd $(BUILD_DIR) && gzip -k device-agent-v2-linux-amd64 -c > packages/device-agent-v2-$(VERSION)-linux-amd64.gz
-	@cd $(BUILD_DIR) && gzip -k device-agent-v2-linux-arm64 -c > packages/device-agent-v2-$(VERSION)-linux-arm64.gz
-	@cd $(BUILD_DIR) && zip packages/device-agent-v2-$(VERSION)-windows-amd64.zip device-agent-v2-windows-amd64.exe
-	@cd $(BUILD_DIR) && gzip -k desktop-gateway-v2-linux-amd64 -c > packages/desktop-gateway-v2-$(VERSION)-linux-amd64.gz
-	@cd $(BUILD_DIR) && gzip -k desktop-gateway-v2-linux-arm64 -c > packages/desktop-gateway-v2-$(VERSION)-linux-arm64.gz
-	@cd $(BUILD_DIR) && zip packages/desktop-gateway-v2-$(VERSION)-windows-amd64.zip desktop-gateway-v2-windows-amd64.exe
+	@# CLI clients
+	@cd $(BUILD_DIR) && gzip -k device-agent-linux-amd64 -c > packages/device-agent-$(VERSION)-linux-amd64.gz
+	@cd $(BUILD_DIR) && gzip -k device-agent-linux-arm64 -c > packages/device-agent-$(VERSION)-linux-arm64.gz
+	@cd $(BUILD_DIR) && zip packages/device-agent-$(VERSION)-windows-amd64.zip device-agent-windows-amd64.exe
+	@cd $(BUILD_DIR) && gzip -k desktop-gateway-linux-amd64 -c > packages/desktop-gateway-$(VERSION)-linux-amd64.gz
+	@cd $(BUILD_DIR) && gzip -k desktop-gateway-linux-arm64 -c > packages/desktop-gateway-$(VERSION)-linux-arm64.gz
+	@cd $(BUILD_DIR) && zip packages/desktop-gateway-$(VERSION)-windows-amd64.zip desktop-gateway-windows-amd64.exe
 	@echo "$(GREEN)Packages created in $(BUILD_DIR)/packages/$(RESET)"
 
 # ==================== 发布 ====================
@@ -88,8 +88,8 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@rm -rf vsp-windows/build/bin
 	@rm -f vsp-server/vsp-server
-	@rm -f vsp-client/device-agent-v2*
-	@rm -f vsp-client/desktop-gateway-v2*
+	@rm -f vsp-client/device-agent*
+	@rm -f vsp-client/desktop-gateway*
 
 # ==================== 开发 ====================
 
@@ -116,7 +116,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  make build-server    - Build vsp-server (Linux)"
-	@echo "  make build-client    - Build device-agent-v2 and desktop-gateway-v2"
+	@echo "  make build-client    - Build device-agent and desktop-gateway"
 	@echo "  make build-assets    - Generate Windows app icon assets"
 	@echo "  make build-windows   - Build VSPManager (Windows GUI)"
 	@echo "  make build-installer - Build Windows NSIS installer"

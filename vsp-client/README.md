@@ -1,17 +1,17 @@
-# VSP V2 CLI Clients
+# VSP CLI Clients
 
-`vsp-client` contains the two command-line clients used by the V2 remote serial gateway:
+`vsp-client` contains the two command-line clients used by the remote serial gateway:
 
-- `device-agent-v2`: field-side agent that opens a physical serial port and connects to `/api/v2/relay/device` with a DeviceKey.
-- `desktop-gateway-v2`: desktop-side gateway that creates a local TCP endpoint and connects to `/api/v2/relay/gateway` with a user JWT.
+- `device-agent`: field-side agent that opens a physical serial port and connects to `/api/relay/device` with a DeviceKey.
+- `desktop-gateway`: desktop-side gateway that creates a local TCP endpoint and connects to `/api/relay/gateway` with a user JWT.
 
-The cloud server does not own serial settings in V2. Port name, baud rate, data bits, stop bits, parity, and flow control are configured where the physical serial device is attached.
+The cloud server does not own serial settings. Port name, baud rate, data bits, stop bits, parity, and flow control are configured where the physical serial device is attached.
 
 ## Build
 
 ```bash
-go build -o device-agent-v2 ./cmd/device-agent-v2
-go build -o desktop-gateway-v2 ./cmd/desktop-gateway-v2
+go build -o device-agent ./cmd/device-agent
+go build -o desktop-gateway ./cmd/desktop-gateway
 ```
 
 Or build both current-platform binaries:
@@ -23,7 +23,7 @@ make build
 ## Field Device Agent
 
 ```bash
-./device-agent-v2 \
+./device-agent \
   -server localhost:9000 \
   -key <device_key> \
   -mapping plc \
@@ -47,12 +47,12 @@ Important flags:
 | `-baud` | Serial baud rate |
 | `-secure` | Force TLS WebSocket when `-server` has no scheme |
 
-`device-agent-v2` sends serial bytes as WebSocket binary frames and writes relay binary frames back to the serial port.
+`device-agent` sends serial bytes as WebSocket binary frames and writes relay binary frames back to the serial port.
 
 ## Desktop Gateway
 
 ```bash
-./desktop-gateway-v2 \
+./desktop-gateway \
   -server localhost:9000 \
   -token <user_jwt> \
   -device-id 1 \
@@ -64,7 +64,7 @@ Important flags:
 
 | Flag | Description |
 |------|-------------|
-| `-token` | User JWT returned by `/api/v2/auth/login`. Can also be set as `VSP_TOKEN` |
+| `-token` | User JWT returned by `/api/auth/login`. Can also be set as `VSP_TOKEN` |
 | `-device-id` | Cloud device ID selected by the logged-in user |
 | `-mapping` | Mapping ID announced by the online device agent |
 | `-listen` | Local TCP endpoint for desktop tools |
@@ -77,4 +77,4 @@ DeviceKey is intentionally not accepted by the desktop gateway. Remote access mu
 go test ./...
 ```
 
-User-facing setup steps live in [`../docs/user-manual.md`](../docs/user-manual.md). Protocol details live in [`../docs/v2-relay.md`](../docs/v2-relay.md).
+User-facing setup steps live in [`../docs/user-manual.md`](../docs/user-manual.md). Protocol details live in [`../docs/relay-protocol.md`](../docs/relay-protocol.md).

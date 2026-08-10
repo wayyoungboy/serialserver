@@ -196,7 +196,7 @@ async function getVersion() {
   if (bridge.value) {
     version.value = await bridge.value.GetVersion()
   } else {
-    version.value = '0.2.0-v2'
+    version.value = '0.0.3'
   }
 }
 

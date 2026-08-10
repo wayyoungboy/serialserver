@@ -1,4 +1,4 @@
-package relayv2
+package relay
 
 import (
 	"net/http/httptest"
@@ -19,7 +19,7 @@ func TestHubPairsDeviceAndGatewayWithBinaryFrames(t *testing.T) {
 	server, device, userToken := newRelayTestServer(t)
 	defer server.Close()
 
-	deviceConn := dialRelay(t, server.URL, "/api/v2/relay/device")
+	deviceConn := dialRelay(t, server.URL, "/api/relay/device")
 	defer deviceConn.Close()
 
 	err := deviceConn.WriteJSON(ControlMessage{
@@ -44,7 +44,7 @@ func TestHubPairsDeviceAndGatewayWithBinaryFrames(t *testing.T) {
 	}
 	readControlMessage(t, deviceConn, "auth")
 
-	gatewayConn := dialRelay(t, server.URL, "/api/v2/relay/gateway")
+	gatewayConn := dialRelay(t, server.URL, "/api/relay/gateway")
 	defer gatewayConn.Close()
 
 	err = gatewayConn.WriteJSON(ControlMessage{
@@ -77,12 +77,12 @@ func TestHubPairsDeviceAndGatewayWithBinaryFrames(t *testing.T) {
 func newRelayTestServer(t *testing.T) (*httptest.Server, *models.Device, string) {
 	t.Helper()
 
-	dbDir, err := os.MkdirTemp("", "relay-v2-test-*")
+	dbDir, err := os.MkdirTemp("", "relay-test-*")
 	if err != nil {
 		t.Fatalf("create temp database dir: %v", err)
 	}
 
-	if err := database.Init(filepath.Join(dbDir, "relay-v2-test.db")); err != nil {
+	if err := database.Init(filepath.Join(dbDir, "relay-test.db")); err != nil {
 		_ = os.RemoveAll(dbDir)
 		t.Fatalf("init database: %v", err)
 	}
@@ -100,7 +100,7 @@ func newRelayTestServer(t *testing.T) (*httptest.Server, *models.Device, string)
 	}
 
 	deviceService := services.NewDeviceService()
-	authService := services.NewAuthService("relay-v2-test-secret", 24)
+	authService := services.NewAuthService("relay-test-secret", 24)
 	logService := services.NewLogService()
 
 	device, err := deviceService.CreateDevice(admin.ID, admin.TenantID, "test-device")
@@ -115,8 +115,8 @@ func newRelayTestServer(t *testing.T) (*httptest.Server, *models.Device, string)
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	hub := NewHub(deviceService, authService, logService)
-	engine.GET("/api/v2/relay/device", hub.HandleDevice)
-	engine.GET("/api/v2/relay/gateway", hub.HandleGateway)
+	engine.GET("/api/relay/device", hub.HandleDevice)
+	engine.GET("/api/relay/gateway", hub.HandleGateway)
 
 	return httptest.NewServer(engine), device, token
 }

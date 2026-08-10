@@ -19,7 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const protocolVersion = "vsp.relay.v2"
+const protocolVersion = "vsp.relay"
 
 var (
 	serverAddr = flag.String("server", "localhost:9000", "VSP server host or URL")
@@ -84,7 +84,7 @@ func main() {
 		log.Fatal("-device-id is required")
 	}
 
-	wsURL, err := buildWebSocketURL(*serverAddr, *secure, "/api/v2/relay/gateway")
+	wsURL, err := buildWebSocketURL(*serverAddr, *secure, "/api/relay/gateway")
 	if err != nil {
 		log.Fatalf("invalid server: %v", err)
 	}

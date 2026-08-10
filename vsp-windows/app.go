@@ -72,7 +72,7 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	log.Println("VSP Manager V2 starting...")
+	log.Println("VSP Manager starting...")
 
 	cfg, err := a.configManager.Load()
 	if err != nil {
@@ -103,7 +103,7 @@ func (a *App) startup(ctx context.Context) {
 		if _, err := a.Login(cfg.Username, cfg.Password); err != nil {
 			log.Printf("Auto-login failed: %v", err)
 		} else if cfg.AutoConnect && cfg.DeviceID != 0 && cfg.MappingID != "" {
-			log.Printf("Attempting V2 auto-connect...")
+			log.Printf("Attempting auto-connect...")
 			if err := a.Connect(cfg.DeviceID, cfg.MappingID, cfg.ListenAddr); err != nil {
 				log.Printf("Auto-connect failed: %v", err)
 			}
@@ -112,7 +112,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
-	log.Println("VSP Manager V2 shutting down...")
+	log.Println("VSP Manager shutting down...")
 	if a.tunnelService != nil {
 		if err := a.tunnelService.Cleanup(); err != nil {
 			log.Printf("Cleanup error: %v", err)
@@ -173,10 +173,10 @@ func (a *App) convertStatus(ts service.TunnelStatus) ConnectionStatus {
 
 // GetVersion returns the application version.
 func (a *App) GetVersion() string {
-	return "0.2.0-v2"
+	return "0.0.3"
 }
 
-// LoadConfig loads the saved V2 configuration.
+// LoadConfig loads the saved configuration.
 func (a *App) LoadConfig() *AppConfig {
 	cfg, err := a.configManager.Load()
 	if err != nil {
@@ -226,7 +226,7 @@ func (a *App) SaveConfig(serverURL string, autoConnect bool) error {
 	return nil
 }
 
-// Login authenticates with the V2 control plane.
+// Login authenticates with the control plane.
 func (a *App) Login(username, password string) (*network.User, error) {
 	if a.apiClient == nil {
 		cfg := a.configManager.Get()
@@ -253,7 +253,7 @@ func (a *App) Login(username, password string) (*network.User, error) {
 	return &resp.User, nil
 }
 
-// Logout clears auth state and stops any active V2 gateway.
+// Logout clears auth state and stops any active gateway.
 func (a *App) Logout() error {
 	a.mu.Lock()
 	a.loggedIn = false
@@ -294,7 +294,7 @@ func (a *App) GetDevices() ([]network.Device, error) {
 	return devices, nil
 }
 
-// GetMappings returns V2 mappings currently announced by a device agent.
+// GetMappings returns mappings currently announced by a device agent.
 func (a *App) GetMappings(deviceID uint) ([]network.MappingState, error) {
 	a.mu.RLock()
 	loggedIn := a.loggedIn
@@ -308,7 +308,7 @@ func (a *App) GetMappings(deviceID uint) ([]network.MappingState, error) {
 	return a.apiClient.GetDeviceMappings(deviceID)
 }
 
-// Connect starts a V2 local TCP gateway for the selected device mapping.
+// Connect starts a local TCP gateway for the selected device mapping.
 func (a *App) Connect(deviceID uint, mappingID string, listenAddress string) error {
 	a.mu.RLock()
 	token := a.currentToken
@@ -343,11 +343,11 @@ func (a *App) Connect(deviceID uint, mappingID string, listenAddress string) err
 	cfg.MappingID = mappingID
 	cfg.ListenAddr = listenAddress
 	a.configManager.Set(cfg)
-	log.Printf("V2 gateway listening: device=%d mapping=%s local=%s", deviceID, mappingID, listenAddress)
+	log.Printf("gateway listening: device=%d mapping=%s local=%s", deviceID, mappingID, listenAddress)
 	return nil
 }
 
-// Disconnect closes the active V2 local TCP gateway.
+// Disconnect closes the active local TCP gateway.
 func (a *App) Disconnect() error {
 	if err := a.tunnelService.Disconnect(); err != nil {
 		return fmt.Errorf("disconnect failed: %w", err)
@@ -355,7 +355,7 @@ func (a *App) Disconnect() error {
 	return nil
 }
 
-// GetStatus returns the current V2 connection status.
+// GetStatus returns the current connection status.
 func (a *App) GetStatus() ConnectionStatus {
 	return a.convertStatus(a.tunnelService.GetStatus())
 }

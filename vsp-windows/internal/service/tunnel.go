@@ -16,9 +16,9 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const protocolVersion = "vsp.relay.v2"
+const protocolVersion = "vsp.relay"
 
-// TunnelConfig configures a V2 local TCP gateway session.
+// TunnelConfig configures a local TCP gateway session.
 type TunnelConfig struct {
 	ServerURL     string
 	UserToken     string
@@ -27,7 +27,7 @@ type TunnelConfig struct {
 	ListenAddress string
 }
 
-// TunnelStatus represents the current V2 gateway status.
+// TunnelStatus represents the current gateway status.
 type TunnelStatus struct {
 	Connected      bool      `json:"connected"`
 	LocalListening bool      `json:"local_listening"`
@@ -58,7 +58,7 @@ type controlMessage struct {
 	SessionID string   `json:"session_id,omitempty"`
 }
 
-// Mapping describes a device-side serial mapping announced through V2 relay.
+// Mapping describes a device-side serial mapping announced through relay.
 type Mapping struct {
 	ID     string         `json:"id"`
 	Name   string         `json:"name,omitempty"`
@@ -80,7 +80,7 @@ type lockedWS struct {
 	mu   sync.Mutex
 }
 
-// TunnelService manages a local TCP endpoint bridged to the V2 relay.
+// TunnelService manages a local TCP endpoint bridged to the relay.
 type TunnelService struct {
 	mu        sync.RWMutex
 	cfg       TunnelConfig
@@ -106,12 +106,12 @@ type TunnelService struct {
 	onDataTransfer func(direction string, bytes int)
 }
 
-// NewTunnelService creates a V2 TCP gateway service.
+// NewTunnelService creates a TCP gateway service.
 func NewTunnelService() *TunnelService {
 	return &TunnelService{}
 }
 
-// Connect starts a local TCP listener and bridges each accepted connection to the V2 relay.
+// Connect starts a local TCP listener and bridges each accepted connection to the relay.
 func (s *TunnelService) Connect(cfg TunnelConfig) error {
 	if cfg.UserToken == "" {
 		return fmt.Errorf("user token is required")
@@ -126,7 +126,7 @@ func (s *TunnelService) Connect(cfg TunnelConfig) error {
 		cfg.ListenAddress = "127.0.0.1:7000"
 	}
 
-	wsURL, err := buildRelayURL(cfg.ServerURL, "/api/v2/relay/gateway")
+	wsURL, err := buildRelayURL(cfg.ServerURL, "/api/relay/gateway")
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (s *TunnelService) Connect(cfg TunnelConfig) error {
 	s.connectedTime = time.Time{}
 	s.mu.Unlock()
 
-	log.Printf("[TunnelService] V2 local TCP endpoint listening on %s", cfg.ListenAddress)
+	log.Printf("[TunnelService] local TCP endpoint listening on %s", cfg.ListenAddress)
 	s.notifyStatusChange()
 	go s.acceptLoop(ctx, listener)
 	return nil
@@ -205,7 +205,7 @@ func (s *TunnelService) Disconnect() error {
 		_ = localConn.Close()
 	}
 
-	log.Printf("[TunnelService] V2 gateway disconnected")
+	log.Printf("[TunnelService] gateway disconnected")
 	s.notifyStatusChange()
 	return nil
 }
@@ -225,7 +225,7 @@ func (s *TunnelService) acceptLoop(ctx context.Context, listener net.Listener) {
 		s.setLastEvent(fmt.Sprintf("Local client connected from %s", localConn.RemoteAddr()))
 		if err := s.handleSession(ctx, localConn); err != nil && ctx.Err() == nil {
 			s.setError(err.Error())
-			log.Printf("[TunnelService] V2 session ended: %v", err)
+			log.Printf("[TunnelService] session ended: %v", err)
 		}
 		s.clearSession(localConn)
 	}
@@ -367,7 +367,7 @@ func (s *TunnelService) handleControl(ws *lockedWS, data []byte) error {
 	return nil
 }
 
-// Cleanup stops the V2 gateway.
+// Cleanup stops the gateway.
 func (s *TunnelService) Cleanup() error {
 	return s.Disconnect()
 }

@@ -150,7 +150,7 @@ func (s *DeviceService) GenerateDeviceKey() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// CreateDevice creates the cloud-side device identity. Serial settings are announced by device-agent-v2.
+// CreateDevice creates the cloud-side device identity. Serial settings are announced by device-agent.
 func (s *DeviceService) CreateDevice(userID, tenantID uint, name string) (*models.Device, error) {
 	deviceKey, err := s.GenerateDeviceKey()
 	if err != nil {

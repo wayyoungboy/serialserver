@@ -1,7 +1,7 @@
 Unicode true
 
 !ifndef APP_VERSION
-!define APP_VERSION "0.2.0"
+!define APP_VERSION "0.0.3"
 !endif
 
 !ifndef SOURCE_DIR
@@ -26,10 +26,10 @@ Icon "..\..\build\windows\icon.ico"
 UninstallIcon "..\..\build\windows\icon.ico"
 SetCompressor /SOLID lzma
 
-VIProductVersion "0.2.0.0"
+VIProductVersion "0.0.3.0"
 VIAddVersionKey /LANG=1033 "ProductName" "${APP_NAME}"
 VIAddVersionKey /LANG=1033 "CompanyName" "${APP_PUBLISHER}"
-VIAddVersionKey /LANG=1033 "FileDescription" "${APP_NAME} V2 Installer"
+VIAddVersionKey /LANG=1033 "FileDescription" "${APP_NAME} Installer"
 VIAddVersionKey /LANG=1033 "FileVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright (c) 2026 ${APP_PUBLISHER}"

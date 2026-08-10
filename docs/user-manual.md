@@ -1,18 +1,18 @@
-# VSP V2 用户使用说明书
+# VSP 用户使用说明书
 
-本文面向 VSP V2 的日常使用者和现场部署人员。当前版本采用“现场串口 Agent + 云端 Relay + 远程本地 TCP 网关”的模式，远程桌面端会创建一个 `127.0.0.1:PORT` TCP 入口，调试软件通过这个入口访问现场串口设备。
+本文面向 VSP 的日常使用者和现场部署人员。当前版本采用“现场串口 Agent + 云端 Relay + 远程本地 TCP 网关”的模式，远程桌面端会创建一个 `127.0.0.1:PORT` TCP 入口，调试软件通过这个入口访问现场串口设备。
 
 ## 1. 角色和凭证
 
 | 角色 | 使用组件 | 需要的凭证 | 用途 |
 |------|----------|------------|------|
 | 管理员 | `vsp-server` Web/API | 用户名和密码 | 创建用户、创建设备、查看状态 |
-| 现场人员 | `device-agent-v2` | DeviceKey | 在设备现场连接物理串口并上线映射 |
-| 远程使用者 | VSPManager 或 `desktop-gateway-v2` | 用户名和密码，或登录后 JWT | 选择在线设备映射并启动本地 TCP 网关 |
+| 现场人员 | `device-agent` | DeviceKey | 在设备现场连接物理串口并上线映射 |
+| 远程使用者 | VSPManager 或 `desktop-gateway` | 用户名和密码，或登录后 JWT | 选择在线设备映射并启动本地 TCP 网关 |
 
 重要边界:
 
-- DeviceKey 只给现场 `device-agent-v2` 使用。
+- DeviceKey 只给现场 `device-agent` 使用。
 - 桌面端不接受 DeviceKey，远程访问必须使用用户登录身份。
 - 串口参数由现场 Agent 配置，云端不再保存或下发串口名、波特率、校验位等参数。
 
@@ -41,7 +41,7 @@ go build -o vsp-server ./cmd
 启动后默认地址:
 
 - Web 管理后台: `http://localhost:9000`
-- REST API: `http://localhost:9000/api/v2`
+- REST API: `http://localhost:9000/api`
 - 默认管理员: `admin` / `admin123`
 
 生产环境应修改默认管理员密码、JWT secret、数据库路径和反向代理 TLS 配置。不要把测试默认密码暴露到公网。
@@ -51,11 +51,11 @@ go build -o vsp-server ./cmd
 管理员可以通过 Web 管理后台或 API 创建设备。CLI 示例:
 
 ```bash
-TOKEN=$(curl -s http://localhost:9000/api/v2/auth/login \
+TOKEN=$(curl -s http://localhost:9000/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"admin123"}' | jq -r '.data.token')
 
-curl -s http://localhost:9000/api/v2/devices \
+curl -s http://localhost:9000/api/devices \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"factory-plc"}' | jq
@@ -65,13 +65,13 @@ curl -s http://localhost:9000/api/v2/devices \
 
 ## 5. 现场设备端上线
 
-在连接物理串口的机器上运行 `device-agent-v2`:
+在连接物理串口的机器上运行 `device-agent`:
 
 ```bash
 cd vsp-client
-go build -o device-agent-v2 ./cmd/device-agent-v2
+go build -o device-agent ./cmd/device-agent
 
-./device-agent-v2 \
+./device-agent \
   -server vsp.example.com \
   -key <device_key> \
   -mapping plc-main \
@@ -87,7 +87,7 @@ go build -o device-agent-v2 ./cmd/device-agent-v2
 Linux 串口示例:
 
 ```bash
-./device-agent-v2 \
+./device-agent \
   -server vsp.example.com \
   -key <device_key> \
   -mapping plc-main \
@@ -131,10 +131,10 @@ Linux 串口示例:
 
 ## 7. CLI 桌面网关
 
-不使用 GUI 时，可以直接运行 `desktop-gateway-v2`。先登录获取 JWT:
+不使用 GUI 时，可以直接运行 `desktop-gateway`。先登录获取 JWT:
 
 ```bash
-TOKEN=$(curl -s http://localhost:9000/api/v2/auth/login \
+TOKEN=$(curl -s http://localhost:9000/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"admin123"}' | jq -r '.data.token')
 ```
@@ -143,9 +143,9 @@ TOKEN=$(curl -s http://localhost:9000/api/v2/auth/login \
 
 ```bash
 cd vsp-client
-go build -o desktop-gateway-v2 ./cmd/desktop-gateway-v2
+go build -o desktop-gateway ./cmd/desktop-gateway
 
-./desktop-gateway-v2 \
+./desktop-gateway \
   -server localhost:9000 \
   -token "$TOKEN" \
   -device-id 1 \
@@ -156,7 +156,7 @@ go build -o desktop-gateway-v2 ./cmd/desktop-gateway-v2
 也可以用环境变量传递 token:
 
 ```bash
-VSP_TOKEN="$TOKEN" ./desktop-gateway-v2 \
+VSP_TOKEN="$TOKEN" ./desktop-gateway \
   -server localhost:9000 \
   -device-id 1 \
   -mapping plc-main \
@@ -167,7 +167,7 @@ VSP_TOKEN="$TOKEN" ./desktop-gateway-v2 \
 
 最小验证步骤:
 
-- 设备端 `device-agent-v2` 日志出现 `device registered`。
+- 设备端 `device-agent` 日志出现 `device registered`。
 - 管理后台或 API 中目标设备映射显示在线。
 - 桌面端启动网关后，本地端口可以连接。
 - 从调试软件发送数据，现场串口设备能收到。
@@ -186,7 +186,7 @@ go test ./...
 
 ### 映射列表为空
 
-- 确认 `device-agent-v2` 正在运行。
+- 确认 `device-agent` 正在运行。
 - 确认 Agent 使用的 DeviceKey 属于当前设备。
 - 确认 Agent 的 `-mapping` 与桌面端选择的映射一致。
 - 查看服务端日志中是否有 `invalid device_key` 或 `mapping.serial.port required`。
@@ -227,6 +227,6 @@ go test ./...
 
 ## 11. 相关文档
 
-- [V2 Relay 协议说明](v2-relay.md)
+- [Relay 协议说明](relay-protocol.md)
 - [Windows 发版检查清单](windows-release-checklist.md)
 - [测试说明](../tests/README.md)

@@ -1,4 +1,4 @@
-package relayv2
+package relay
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ProtocolVersion = "vsp.relay.v2"
+	ProtocolVersion = "vsp.relay"
 
 	roleDevice  = "device"
 	roleGateway = "gateway"
@@ -163,7 +163,7 @@ func NewHub(deviceService *services.DeviceService, authService *services.AuthSer
 func (h *Hub) HandleDevice(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("[relay-v2] device upgrade failed: %v", err)
+		log.Printf("[relay] device upgrade failed: %v", err)
 		return
 	}
 
@@ -218,10 +218,10 @@ func (h *Hub) HandleDevice(c *gin.Context) {
 	}
 
 	_ = h.deviceService.UpdateDeviceStatus(first.DeviceKey, "online")
-	_ = h.logService.Log(device.TenantID, device.ID, 0, "v2_device_connect", fmt.Sprintf("mapping=%s serial=%s", mapping.ID, mapping.Serial.Port))
+	_ = h.logService.Log(device.TenantID, device.ID, 0, "relay_device_connect", fmt.Sprintf("mapping=%s serial=%s", mapping.ID, mapping.Serial.Port))
 	_ = dp.writeJSON(ControlMessage{Type: "auth", Protocol: ProtocolVersion, Status: "ok", Message: "device registered"})
 
-	log.Printf("[relay-v2] device online device=%d mapping=%s serial=%s", device.ID, mapping.ID, mapping.Serial.Port)
+	log.Printf("[relay] device online device=%d mapping=%s serial=%s", device.ID, mapping.ID, mapping.Serial.Port)
 	h.readLoop(key, roleDevice, &dp.peer)
 	h.deviceDisconnected(key, dp)
 }
@@ -229,7 +229,7 @@ func (h *Hub) HandleDevice(c *gin.Context) {
 func (h *Hub) HandleGateway(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("[relay-v2] gateway upgrade failed: %v", err)
+		log.Printf("[relay] gateway upgrade failed: %v", err)
 		return
 	}
 
@@ -278,7 +278,7 @@ func (h *Hub) HandleGateway(c *gin.Context) {
 	h.sessions[key] = sess
 	h.mu.Unlock()
 
-	_ = h.logService.Log(device.TenantID, device.ID, userID, "v2_gateway_connect", fmt.Sprintf("mapping=%s", mappingID))
+	_ = h.logService.Log(device.TenantID, device.ID, userID, "relay_gateway_connect", fmt.Sprintf("mapping=%s", mappingID))
 	ready := ControlMessage{
 		Type:      "session_ready",
 		Protocol:  ProtocolVersion,
@@ -289,7 +289,7 @@ func (h *Hub) HandleGateway(c *gin.Context) {
 	_ = gp.writeJSON(ready)
 	_ = dp.writeJSON(ready)
 
-	log.Printf("[relay-v2] session ready device=%d mapping=%s user=%d", device.ID, mappingID, userID)
+	log.Printf("[relay] session ready device=%d mapping=%s user=%d", device.ID, mappingID, userID)
 	h.readLoop(key, roleGateway, &gp.peer)
 	h.gatewayDisconnected(key, gp)
 }
@@ -401,13 +401,13 @@ func (h *Hub) deviceDisconnected(key endpointKey, dp *devicePeer) {
 
 	if wasCurrent {
 		_ = h.deviceService.UpdateDeviceStatus(dp.record.DeviceKey, "offline")
-		_ = h.logService.Log(dp.record.TenantID, dp.record.ID, 0, "v2_device_disconnect", fmt.Sprintf("mapping=%s", key.mappingID))
+		_ = h.logService.Log(dp.record.TenantID, dp.record.ID, 0, "relay_device_disconnect", fmt.Sprintf("mapping=%s", key.mappingID))
 	}
 	if sess != nil {
 		_ = sess.gateway.writeJSON(ControlMessage{Type: "session_closed", Protocol: ProtocolVersion, Message: "device disconnected"})
 		sess.gateway.close()
 	}
-	log.Printf("[relay-v2] device offline device=%d mapping=%s", dp.record.ID, key.mappingID)
+	log.Printf("[relay] device offline device=%d mapping=%s", dp.record.ID, key.mappingID)
 }
 
 func (h *Hub) gatewayDisconnected(key endpointKey, gp *gatewayPeer) {
@@ -421,10 +421,10 @@ func (h *Hub) gatewayDisconnected(key endpointKey, gp *gatewayPeer) {
 
 	if sess != nil {
 		bytesToDev, bytesToGate := sess.byteTotals()
-		_ = h.logService.Log(sess.device.record.TenantID, sess.device.record.ID, gp.userID, "v2_gateway_disconnect", fmt.Sprintf("mapping=%s to_device=%d to_gateway=%d", key.mappingID, bytesToDev, bytesToGate))
+		_ = h.logService.Log(sess.device.record.TenantID, sess.device.record.ID, gp.userID, "relay_gateway_disconnect", fmt.Sprintf("mapping=%s to_device=%d to_gateway=%d", key.mappingID, bytesToDev, bytesToGate))
 		_ = sess.device.writeJSON(ControlMessage{Type: "session_closed", Protocol: ProtocolVersion, Message: "gateway disconnected"})
 	}
-	log.Printf("[relay-v2] gateway offline device=%d mapping=%s", key.deviceID, key.mappingID)
+	log.Printf("[relay] gateway offline device=%d mapping=%s", key.deviceID, key.mappingID)
 }
 
 func (h *Hub) authorizeGateway(msg ControlMessage) (*models.Device, uint, error) {

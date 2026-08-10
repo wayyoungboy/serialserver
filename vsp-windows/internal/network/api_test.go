@@ -11,7 +11,7 @@ func TestAPIClientCreation(t *testing.T) {
 		t.Fatal("NewAPIClient returned nil")
 	}
 
-	expectedBaseURL := "http://localhost:9000/api/v2"
+	expectedBaseURL := "http://localhost:9000/api"
 	if client.baseURL != expectedBaseURL {
 		t.Errorf("Expected baseURL '%s', got '%s'", expectedBaseURL, client.baseURL)
 	}

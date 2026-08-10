@@ -72,7 +72,7 @@ func TestNewTunnelService(t *testing.T) {
 	}
 }
 
-func TestTunnelServiceRequiresV2Auth(t *testing.T) {
+func TestTunnelServiceRequiresUserAuth(t *testing.T) {
 	service := NewTunnelService()
 	err := service.Connect(TunnelConfig{
 		ServerURL:     "http://localhost:9000",
@@ -133,14 +133,14 @@ func TestBuildRelayURL(t *testing.T) {
 		server string
 		want   string
 	}{
-		{name: "http", server: "http://localhost:9000", want: "ws://localhost:9000/api/v2/relay/gateway"},
-		{name: "https", server: "https://relay.example.com", want: "wss://relay.example.com/api/v2/relay/gateway"},
-		{name: "host only", server: "localhost:9000", want: "ws://localhost:9000/api/v2/relay/gateway"},
+		{name: "http", server: "http://localhost:9000", want: "ws://localhost:9000/api/relay/gateway"},
+		{name: "https", server: "https://relay.example.com", want: "wss://relay.example.com/api/relay/gateway"},
+		{name: "host only", server: "localhost:9000", want: "ws://localhost:9000/api/relay/gateway"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildRelayURL(tt.server, "/api/v2/relay/gateway")
+			got, err := buildRelayURL(tt.server, "/api/relay/gateway")
 			if err != nil {
 				t.Fatalf("buildRelayURL failed: %v", err)
 			}

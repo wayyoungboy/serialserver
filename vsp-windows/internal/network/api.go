@@ -30,7 +30,7 @@ type Device struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-// MappingState represents a V2 serial mapping currently announced by a device.
+// MappingState represents a serial mapping currently announced by a device.
 type MappingState struct {
 	Mapping Mapping `json:"mapping"`
 	Online  bool    `json:"online"`
@@ -83,7 +83,7 @@ func NewAPIClient(host string, port int) *APIClient {
 func NewAPIClientFromURL(serverURL string) *APIClient {
 	origin := normalizeOrigin(serverURL)
 	return &APIClient{
-		baseURL:   fmt.Sprintf("%s/api/v2", origin),
+		baseURL:   fmt.Sprintf("%s/api", origin),
 		originURL: origin,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -91,7 +91,7 @@ func NewAPIClientFromURL(serverURL string) *APIClient {
 	}
 }
 
-// RelayWebSocketURL builds a V2 relay WebSocket URL.
+// RelayWebSocketURL builds a relay WebSocket URL.
 func (c *APIClient) RelayWebSocketURL(path string) string {
 	u, err := url.Parse(c.originURL)
 	if err != nil {
@@ -222,7 +222,7 @@ func (c *APIClient) GetDeviceList() ([]Device, error) {
 	return devices, nil
 }
 
-// GetDeviceMappings retrieves online V2 mappings announced by a device agent.
+// GetDeviceMappings retrieves online mappings announced by a device agent.
 func (c *APIClient) GetDeviceMappings(deviceID uint) ([]MappingState, error) {
 	if c.token == "" {
 		return nil, fmt.Errorf("not authenticated")

@@ -28,7 +28,7 @@ const (
 	testUserPassword = "serialserver-e2e-password"
 )
 
-func TestV2RelayThroughPseudoTerminal(t *testing.T) {
+func TestRelayThroughPseudoTerminal(t *testing.T) {
 	if testing.Short() {
 		t.Skip("serial relay e2e test is skipped in short mode")
 	}
@@ -44,12 +44,12 @@ func TestV2RelayThroughPseudoTerminal(t *testing.T) {
 	binDir := t.TempDir()
 
 	serverBin := filepath.Join(binDir, "vsp-server")
-	deviceAgentBin := filepath.Join(binDir, "device-agent-v2")
-	desktopGatewayBin := filepath.Join(binDir, "desktop-gateway-v2")
+	deviceAgentBin := filepath.Join(binDir, "device-agent")
+	desktopGatewayBin := filepath.Join(binDir, "desktop-gateway")
 
 	buildBinary(ctx, t, filepath.Join(repoRoot, "vsp-server"), serverBin, "./cmd")
-	buildBinary(ctx, t, filepath.Join(repoRoot, "vsp-client"), deviceAgentBin, "./cmd/device-agent-v2")
-	buildBinary(ctx, t, filepath.Join(repoRoot, "vsp-client"), desktopGatewayBin, "./cmd/desktop-gateway-v2")
+	buildBinary(ctx, t, filepath.Join(repoRoot, "vsp-client"), deviceAgentBin, "./cmd/device-agent")
+	buildBinary(ctx, t, filepath.Join(repoRoot, "vsp-client"), desktopGatewayBin, "./cmd/desktop-gateway")
 
 	serverPort := freeTCPPort(t)
 	serverHTTP := fmt.Sprintf("http://127.0.0.1:%d", serverPort)
@@ -80,7 +80,7 @@ func TestV2RelayThroughPseudoTerminal(t *testing.T) {
 		_ = master.Close()
 	})
 
-	deviceProc := startProcess(t, ctx, "device-agent-v2", filepath.Join(repoRoot, "vsp-client"), nil,
+	deviceProc := startProcess(t, ctx, "device-agent", filepath.Join(repoRoot, "vsp-client"), nil,
 		deviceAgentBin,
 		"-server", serverAddr,
 		"-key", device.DeviceKey,
@@ -93,7 +93,7 @@ func TestV2RelayThroughPseudoTerminal(t *testing.T) {
 	waitForMappingOnline(ctx, t, client, serverHTTP, token, device.ID, deviceProc, serverProc)
 
 	gatewayAddr := fmt.Sprintf("127.0.0.1:%d", freeTCPPort(t))
-	gatewayProc := startProcess(t, ctx, "desktop-gateway-v2", filepath.Join(repoRoot, "vsp-client"), nil,
+	gatewayProc := startProcess(t, ctx, "desktop-gateway", filepath.Join(repoRoot, "vsp-client"), nil,
 		desktopGatewayBin,
 		"-server", serverAddr,
 		"-token", token,
@@ -144,7 +144,7 @@ type mappingState struct {
 
 func registerUser(t *testing.T, client *http.Client, baseURL, username string) {
 	t.Helper()
-	_ = postJSON[map[string]any](t, client, baseURL+"/api/v2/auth/register", "", http.StatusCreated, map[string]string{
+	_ = postJSON[map[string]any](t, client, baseURL+"/api/auth/register", "", http.StatusCreated, map[string]string{
 		"username": username,
 		"email":    username + "@example.invalid",
 		"password": testUserPassword,
@@ -153,7 +153,7 @@ func registerUser(t *testing.T, client *http.Client, baseURL, username string) {
 
 func loginUser(t *testing.T, client *http.Client, baseURL, username string) string {
 	t.Helper()
-	data := postJSON[loginData](t, client, baseURL+"/api/v2/auth/login", "", http.StatusOK, map[string]string{
+	data := postJSON[loginData](t, client, baseURL+"/api/auth/login", "", http.StatusOK, map[string]string{
 		"username": username,
 		"password": testUserPassword,
 	})
@@ -165,7 +165,7 @@ func loginUser(t *testing.T, client *http.Client, baseURL, username string) stri
 
 func createDevice(t *testing.T, client *http.Client, baseURL, token string) deviceData {
 	t.Helper()
-	data := postJSON[deviceData](t, client, baseURL+"/api/v2/devices", token, http.StatusCreated, map[string]string{
+	data := postJSON[deviceData](t, client, baseURL+"/api/devices", token, http.StatusCreated, map[string]string{
 		"name": "e2e-device",
 	})
 	if data.ID == 0 || data.DeviceKey == "" {
@@ -239,7 +239,7 @@ func waitForServer(ctx context.Context, t *testing.T, baseURL string, proc *mana
 	t.Helper()
 	client := &http.Client{Timeout: 500 * time.Millisecond}
 	waitUntil(ctx, t, "vsp-server HTTP readiness", []*managedProcess{proc}, func() bool {
-		req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v2/stats", nil)
+		req, err := http.NewRequest(http.MethodGet, baseURL+"/api/stats", nil)
 		if err != nil {
 			t.Fatalf("create readiness request: %v", err)
 		}
@@ -254,7 +254,7 @@ func waitForServer(ctx context.Context, t *testing.T, baseURL string, proc *mana
 
 func waitForMappingOnline(ctx context.Context, t *testing.T, client *http.Client, baseURL, token string, deviceID uint, procs ...*managedProcess) {
 	t.Helper()
-	endpoint := fmt.Sprintf("%s/api/v2/devices/%d/mappings", baseURL, deviceID)
+	endpoint := fmt.Sprintf("%s/api/devices/%d/mappings", baseURL, deviceID)
 	waitUntil(ctx, t, "device mapping online", procs, func() bool {
 		mappings := getJSON[[]mappingState](t, client, endpoint, token, http.StatusOK)
 		for _, state := range mappings {

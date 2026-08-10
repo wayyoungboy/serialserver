@@ -3,7 +3,7 @@ package api
 import (
 	"vsp-server/internal/api/handlers"
 	"vsp-server/internal/api/middleware"
-	"vsp-server/internal/relayv2"
+	"vsp-server/internal/relay"
 	"vsp-server/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +17,7 @@ type Router struct {
 	statsHandler  *handlers.StatsHandler
 	logHandler    *handlers.LogHandler
 	authService   *services.AuthService
-	relayHub      *relayv2.Hub
+	relayHub      *relay.Hub
 }
 
 // NewRouter 创建路由
@@ -29,7 +29,7 @@ func NewRouter(engine *gin.Engine, authService *services.AuthService, deviceServ
 		statsHandler:  handlers.NewStatsHandler(statsService),
 		logHandler:    handlers.NewLogHandler(logService),
 		authService:   authService,
-		relayHub:      relayv2.NewHub(deviceService, authService, logService),
+		relayHub:      relay.NewHub(deviceService, authService, logService),
 	}
 }
 
@@ -44,7 +44,7 @@ func (r *Router) Setup() {
 	r.engine.StaticFile("/", "./web/dist/index.html")
 
 	// API路由组
-	api := r.engine.Group("/api/v2")
+	api := r.engine.Group("/api")
 	{
 		// 认证路由（无需认证）
 		auth := api.Group("/auth")
@@ -79,7 +79,7 @@ func (r *Router) Setup() {
 			protected.GET("/logs", r.logHandler.GetLogs)
 		}
 
-		// V2 relay API: device-side serial settings, cloud-side pairing and binary forwarding.
+		// relay API: device-side serial settings, cloud-side pairing and binary forwarding.
 		api.GET("/relay/device", r.relayHub.HandleDevice)
 		api.GET("/relay/gateway", r.relayHub.HandleGateway)
 	}

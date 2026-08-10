@@ -78,10 +78,10 @@ vsp-server/configs/config.local.yaml
 # Compiled binaries (build in CI)
 vsp-server/vsp-server.exe
 vsp-server/vsp-server
-vsp-client/device-agent-v2.exe
-vsp-client/device-agent-v2
-vsp-client/desktop-gateway-v2.exe
-vsp-client/desktop-gateway-v2
+vsp-client/device-agent.exe
+vsp-client/device-agent
+vsp-client/desktop-gateway.exe
+vsp-client/desktop-gateway
 vsp-windows/build/bin/
 
 # Archives

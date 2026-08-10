@@ -20,7 +20,7 @@ import (
 	serialport "github.com/tarm/serial"
 )
 
-const protocolVersion = "vsp.relay.v2"
+const protocolVersion = "vsp.relay"
 
 var (
 	serverAddr  = flag.String("server", "localhost:9000", "VSP server host or URL")
@@ -90,7 +90,7 @@ func main() {
 		log.Fatal("-data-bits must be between 5 and 8")
 	}
 
-	wsURL, err := buildWebSocketURL(*serverAddr, *secure, "/api/v2/relay/device")
+	wsURL, err := buildWebSocketURL(*serverAddr, *secure, "/api/relay/device")
 	if err != nil {
 		log.Fatalf("invalid server: %v", err)
 	}
