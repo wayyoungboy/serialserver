@@ -1,7 +1,7 @@
 # VSP Project Makefile
 # 用法: make <target>
 
-.PHONY: all clean build-server build-client build-assets build-windows build-installer package release dev-server dev-windows test test-e2e help
+.PHONY: all clean build-server build-client build-assets build-windows build-installer package release dev-server dev-windows test test-e2e smoke help
 
 # 版本号
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.1.0")
@@ -13,13 +13,14 @@ GREEN := \033[32m
 YELLOW := \033[33m
 RESET := \033[0m
 
-all: build-server build-client build-windows
+all: build-server build-client
 
 # ==================== 构建 ====================
 
 build-server:
 	@echo "$(GREEN)Building vsp-server...$(RESET)"
-	@cd vsp-server && CGO_ENABLED=1 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o ../$(BUILD_DIR)/vsp-server ./cmd
+	@mkdir -p $(BUILD_DIR)
+	@cd vsp-server && CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o ../$(BUILD_DIR)/vsp-server ./cmd
 
 build-client:
 	@echo "$(GREEN)Building CLI clients for multiple platforms...$(RESET)"
@@ -103,11 +104,27 @@ test:
 	@cd vsp-server && go test ./...
 	@cd vsp-client && go test ./...
 	@cd vsp-windows && go test ./...
-	@cd vsp-windows/frontend && npm run build
+	@cd vsp-windows/frontend && npm ci && npm run build
 	@cd tests/e2e && go test ./...
 
 test-e2e:
 	@cd tests/e2e && go test ./...
+
+smoke:
+	@echo "$(GREEN)Building current-platform binaries and printing CLI help...$(RESET)"
+	@cd vsp-server && go build -o vsp-server ./cmd
+	@cd vsp-client && go build -o device-agent ./cmd/device-agent
+	@cd vsp-client && go build -o desktop-gateway ./cmd/desktop-gateway
+	@echo ""
+	@echo "$(YELLOW)device-agent help$(RESET)"
+	@vsp-client/device-agent -h
+	@echo ""
+	@echo "$(YELLOW)desktop-gateway help$(RESET)"
+	@vsp-client/desktop-gateway -h
+	@echo ""
+	@echo "$(GREEN)Binaries: vsp-server/vsp-server vsp-client/device-agent vsp-client/desktop-gateway$(RESET)"
+	@echo "$(YELLOW)Run the server from vsp-server/ so configs/ and web/dist resolve.$(RESET)"
+	@echo "$(YELLOW)Linux no-hardware relay smoke: make test-e2e$(RESET)"
 
 # ==================== 帮助 ====================
 
@@ -125,7 +142,9 @@ help:
 	@echo "  make clean           - Remove build artifacts"
 	@echo "  make dev-server      - Run server in dev mode"
 	@echo "  make dev-windows     - Run Windows client in dev mode"
-	@echo "  make test            - Run integration tests"
+	@echo "  make all             - Build server + CLI (no Windows GUI / Wails)"
+	@echo "  make smoke           - Build local binaries and print CLI help"
+	@echo "  make test            - Run Go tests, frontend build, and Linux E2E"
 	@echo "  make test-e2e        - Run Linux pseudo-terminal serial relay E2E"
 	@echo ""
 	@echo "Version: $(VERSION)"
