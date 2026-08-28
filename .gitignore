@@ -15,6 +15,7 @@ bin/
 # IDE
 .idea/
 .vscode/
+.vs/
 *.swp
 *.swo
 *~
@@ -90,12 +91,3 @@ vsp-windows/build/bin/
 # Test temp files
 vsp-windows/test_com0com/
 
-# Chinese docs (temp)
-*.md
-!README.md
-!README_EN.md
-!docs/**/*.md
-!tests/**/*.md
-!vsp-server/README.md
-!vsp-client/README.md
-!vsp-windows/README.md
